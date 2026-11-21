@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>EduMind｜AI 原生智慧教学平台 · 项目说明文档与路演材料</title>
+  <style>
+    @page { size: A4; margin: 14mm 14mm 16mm 14mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+      color: #0f172a;
+      background: #ffffff;
+      line-height: 1.65;
+      font-size: 13px;
+    }
+    .cover {
+      min-height: 255mm;
+      background: linear-gradient(155deg, #eaf5ff 0%, #f6fbff 48%, #dff0ff 100%);
+      border: 1.5px solid #bae6fd;
+      border-radius: 20px;
+      padding: 44px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      page-break-after: always;
+    }
+    .badge {
+      display: inline-block;
+      background: #0284c7;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 999px;
+      letter-spacing: 0.4px;
+    }
+    .cover h1 {
+      font-size: 40px;
+      line-height: 1.2;
+      margin: 22px 0 12px;
+      color: #0c2342;
+      letter-spacing: -0.5px;
+    }
+    .cover .subtitle {
+      font-size: 18px;
+      color: #0369a1;
+      font-weight: 600;
+      margin: 0 0 28px;
+    }
+    .cover-preview {
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #bae6fd;
+      box-shadow: 0 16px 40px -12px rgba(2, 132, 199, 0.22);
+      background: #fff;
+    }
+    .cover-preview img { width: 100%; display: block; }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .meta-card {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #cce6fb;
+      border-radius: 12px;
+      padding: 12px 16px;
+    }
+    .meta-card .k { font-size: 11px; color: #64748b; }
+    .meta-card .v { font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px; word-break: break-all; }
+
+    h2 {
+      font-size: 19px;
+      color: #0c2342;
+      border-left: 4px solid #0284c7;
+      padding-left: 10px;
+      margin: 24px 0 12px;
+      page-break-after: avoid;
+    }
+    h3 {
+      font-size: 14.5px;
+      color: #0369a1;
+      margin: 16px 0 8px;
+      page-break-after: avoid;
+    }
+    .summary-box {
+      background: #f0f8ff;
+      border: 1.5px solid #7dd3fc;
+      border-radius: 14px;
+      padding: 18px 20px;
+      margin: 10px 0 18px;
+    }
+    .summary-box p { margin: 8px 0; font-size: 13.5px; color: #1e293b; text-align: justify; }
+    .summary-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #0369a1;
+      background: #e0f2fe;
+      padding: 2px 10px;
+      border-radius: 999px;
+      margin-bottom: 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 16px;
+      font-size: 12px;
+    }
+    th, td {
+      border: 1px solid #dbe9f8;
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #e8f4ff;
+      color: #0c2342;
+      font-weight: 700;
+    }
+    tr:nth-child(even) td { background: #f9fcff; }
+
+    .fig-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 12px 0 16px;
+      page-break-inside: avoid;
+    }
+    .fig {
+      border: 1px solid #dbe9f8;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #f8fbff;
+      page-break-inside: avoid;
+      margin-bottom: 12px;
+    }
+    .fig img { width: 100%; display: block; }
+    .fig-cap {
+      padding: 7px 12px;
+      font-size: 11.5px;
+      color: #475569;
+      font-weight: 600;
+      border-top: 1px solid #e2effc;
+      background: #ffffff;
+    }
+    .flow-box {
+      background: #f8fbff;
+      border: 1px solid #cce6fb;
+      border-radius: 14px;
+      padding: 16px;
+      margin: 12px 0 16px;
+      page-break-inside: avoid;
+    }
+    .flow-steps {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .flow-node {
+      flex: 1;
+      background: #ffffff;
+      border: 1.5px solid #7dd3fc;
+      border-radius: 10px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+    .flow-node .t { font-size: 12px; font-weight: 700; color: #0369a1; }
+    .flow-node .d { font-size: 10.5px; color: #475569; margin-top: 3px; }
+    .arrow { color: #0284c7; font-weight: 800; font-size: 16px; }
+    .page-break { page-break-before: always; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+    .pill {
+      background: #e0f2fe;
+      color: #0369a1;
+      border: 1px solid #bae6fd;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+    ul { padding-left: 18px; margin: 6px 0 12px; }
+    li { margin-bottom: 5px; }
+  </style>
+</head>
+<body>
+
+  <!-- COVER PAGE -->
+  <section class="cover">
+    <div>
+      <span class="badge">TRAE AI 校园黑客松 · 赛道二 学习教育（乐学智教）</span>
+      <h1>EduMind<br/>AI 原生智慧教学平台</h1>
+      <p class="subtitle">让老师更容易教，让学生真正学会 · 课前/课中/课后全链路闭环</p>
+      <div class="cover-preview">
+        <img src="./images/01-teacher-dashboard.png" alt="EduMind 教师端驾驶舱" />
+      </div>
+    </div>
+
+    <div class="meta-grid">
+      <div class="meta-card">
+        <div class="k">在线可访问演示链接（评委打开即操作）</div>
+        <div class="v">https://sjz-wgh.cn/</div>
+      </div>
+      <div class="meta-card">
+        <div class="k">开源代码仓库（dev-wgh 专属分支）</div>
+        <div class="v">github.com/kong2758045884/heikesong</div>
+      </div>
+      <div class="meta-card">
+        <div class="k">主力 AI 开发工具</div>
+        <div class="v">TRAE AI IDE（全流程编码、联调与部署）</div>
+      </div>
+      <div class="meta-card">
+        <div class="k">对标赛题与场景</div>
+        <div class="v">赛题二：辅助教师教学的工具（曲阜师范大学）</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 1: 500 WORD SUMMARY -->
+  <h2>一、500 字以内作品说明（报名表直接提交版）</h2>
+  <div class="summary-box">
+    <span class="summary-tag">精准控字：435 字 · 符合 500 字以内要求</span>
+    <p><strong>EduMind</strong> 是一款面向高校师生的 AI 原生智慧教学平台，聚焦“<strong>让老师更容易教，让学生真正学会</strong>”，围绕课前、课中、课后构建完整教学闭环，产出可直接用于真实课堂与课后讲评。</p>
+    <p>针对传统教学平台“考勤易代签、课堂参与难量化、作业批改讲评耗时、学生薄弱点不清晰”四大痛点，EduMind 创新采用<strong>教师桌面驾驶舱 + 学生移动端（底部 5 栏）</strong>双端形态：课前通过浏览器端 <strong>MediaPipe 21 关键点模型</strong>实现“指定手势 + 实景拍照 + 教师人工复核”真实签到；课中提供绑定课件页码的 <strong>AI 课堂副驾驶</strong>、中英双语术语字幕、AI 实时出题与自动课堂笔记；课后通过<strong>四维错因诊断</strong>联动 <strong>Three.js 3D 知识图谱</strong>与 <strong>3D 虚拟实验室</strong>，并支持教师一键开启<strong>脱敏错例大屏投屏讲评</strong>、风格化评语模板与 A/B/C 分层巩固作业导出。</p>
+    <p>作品以 <strong>TRAE</strong> 为主力 AI 研发工具完成前端工程构建、交互调试与上线部署，所有演示均采用自建脱敏模拟课程数据，支持教师审核与低性能降级，现已部署上线（https://sjz-wgh.cn/），开箱即可体验全流程闭环。</p>
+  </div>
+
+  <!-- SECTION 2: TARGET USERS -->
+  <h2>二、目标用户与真实场景痛点</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:18%">目标用户</th>
+        <th style="width:18%">专属终端形态</th>
+        <th style="width:32%">真实教学与学习痛点</th>
+        <th style="width:32%">EduMind 闭环解决方案</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>高校教师 / 师范生</strong></td>
+        <td>桌面端数据驾驶舱</td>
+        <td>作业批改后统计错因、写差异化评语、制作讲评 PPT 耗时极高；二维码签到易代签。</td>
+        <td>四维错因聚类 + 一键<strong>教室脱敏投屏讲评</strong> + 教师风格评语模板 + A/B/C 分层作业导出。</td>
+      </tr>
+      <tr>
+        <td><strong>在校大学生</strong></td>
+        <td>移动端 App（底部 5 栏）</td>
+        <td>课上听不懂不敢提问；抽象算法（如递归调用栈）难理解；错题只知对错不懂根因。</td>
+        <td>匿名问课件上下文 AI 副驾驶 + 3D 虚拟实验动手演练 + 变式通关<strong>实时点亮 3D 图谱</strong>。</td>
+      </tr>
+      <tr>
+        <td><strong>教务与管理员</strong></td>
+        <td>运维与合规中心</td>
+        <td>签到影像存在隐私合规风险、班级权限与 AI 调用缺乏审计。</td>
+        <td>RBAC 权限隔离、AI 调用监控、签到影像 24h 自动销毁策略与口令替代签到通道。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECTION 3: CLOSED LOOP & SCREENSHOTS -->
+  <h2>三、方案内容与全链路实景展示</h2>
+  <div class="flow-box">
+    <div style="font-size:12px;font-weight:700;color:#0c2342;margin-bottom:10px;">EduMind 教学全链路数据闭环</div>
+    <div class="flow-steps">
+      <div class="flow-node"><div class="t">1. 课前智能签到</div><div class="d">MediaPipe 21点真实手势 + 人工复核</div></div>
+      <div class="arrow">→</div>
+      <div class="flow-node"><div class="t">2. 课中 AI 课堂</div><div class="d">课件上下文副驾驶 + 双语字幕 + 出题</div></div>
+      <div class="arrow">→</div>
+      <div class="flow-node"><div class="t">3. 3D 虚拟实验</div><div class="d">调用栈压栈回溯 / 排序 / 二叉树</div></div>
+      <div class="arrow">→</div>
+      <div class="flow-node"><div class="t">4. 诊断与讲评</div><div class="d">四维错因 / 脱敏投屏 / 分层作业</div></div>
+      <div class="arrow">→</div>
+      <div class="flow-node"><div class="t">5. 3D 知识图谱</div><div class="d">多证据掌握度实时更新</div></div>
+    </div>
+  </div>
+
+  <h3>3.1 教师端：智能签到复核 &amp; AI 实时智慧课堂</h3>
+  <div class="fig-grid-2">
+    <div class="fig">
+      <img src="./images/02-teacher-checkin.png" alt="教师端智能签到" />
+      <div class="fig-cap">图 1：教师端 AI 智能签到规则配置与异常一键人工复核队列</div>
+    </div>
+    <div class="fig">
+      <img src="./images/03-live-classroom.png" alt="AI实时智慧课堂" />
+      <div class="fig-cap">图 2：AI 实时智慧课堂（课件 + 中英双语术语字幕 + 上下文副驾驶）</div>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h3>3.2 沉浸式三维教学：3D 知识图谱 &amp; 3D 虚拟实验室</h3>
+  <div class="fig-grid-2">
+    <div class="fig">
+      <img src="./images/04-knowledge-graph-3d.png" alt="3D知识图谱" />
+      <div class="fig-cap">图 3：Three.js 3D 互动知识图谱（先修粒子流 + 颜色/文字双编码 + 2D 降级）</div>
+    </div>
+    <div class="fig">
+      <img src="./images/05-virtual-lab.png" alt="3D虚拟实验室" />
+      <div class="fig-cap">图 4：3D 递归调用栈虚拟实验室（单步压栈回溯 + 栈溢出反面演示）</div>
+    </div>
+  </div>
+
+  <h3>3.3 产出直接用于真实课堂：教室大屏脱敏错例投屏讲评</h3>
+  <div class="fig">
+    <img src="./images/06-projection-review.png" alt="脱敏错例投屏讲评" />
+    <div class="fig-cap">图 5：教室大屏全屏脱敏讲评模式（匿名错解 vs 规范正解 + 苏格拉底式课堂引导提问提词卡）</div>
+  </div>
+
+  <h3>3.4 学生端：专属移动端 App 布局（底部 5 栏极简交互 + MediaPipe 真机手势签到）</h3>
+  <div class="fig-grid-2">
+    <div class="fig">
+      <img src="./images/07-student-mobile-home.png" alt="学生移动端首页" />
+      <div class="fig-cap">图 6：学生端移动端首页（底部仅保留 首页/签到/课堂/图谱/错题 5 栏）</div>
+    </div>
+    <div class="fig">
+      <img src="./images/08-student-mobile-checkin.png" alt="学生移动端手势签到" />
+      <div class="fig-cap">图 7：学生移动端 MediaPipe 真实手势签到与实拍照片即时预览</div>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- SECTION 4 & 5: DESIGN & TECH -->
+  <h2>四、设计思路与技术实现方式</h2>
+  <div class="pill-row">
+    <span class="pill">Vite 8 + React 19 + TypeScript</span>
+    <span class="pill">Tailwind CSS v4 克制浅蓝美学</span>
+    <span class="pill">Three.js WebGL 3D 星图</span>
+    <span class="pill">MediaPipe 21 关键点本地 WASM</span>
+    <span class="pill">Recharts 学情可视化</span>
+    <span class="pill">Nginx HTTPS 零 CDN 依赖部署</span>
+  </div>
+  <ul>
+    <li><strong>双端差异化交互设计</strong>：教师端侧重宽屏学情洞察与大屏投屏，采用桌面侧栏驾驶舱；学生端聚焦手机随手学，采用底部 5 栏单列移动端 App 形态，拇指单手即可跑通全部学习任务。</li>
+    <li><strong>克制浅蓝 Unslop 视觉体系</strong>：去除浮夸光斑与冗余装饰，采用浅冰蓝（#F2F7FD）与纯白卡片组合，确保教室投影与移动端长时间阅读的清晰度；3D 星图与代码块保留深海蓝以突出焦点。</li>
+    <li><strong>确定性代码 + 大模型协同（0 幻觉架构）</strong>：得分率统计、分层分组、21 点手部骨骼几何夹角由确定性代码精确计算；AI 专注语义答疑、错因解析与评语润色，且保留教师最终审核编辑权。</li>
+    <li><strong>真机防作弊手势识别</strong>：将 MediaPipe WASM 与 <code>hand_landmarker.task</code>（7.5MB）直接托管在自有服务器 <code>/mediapipe/</code>，通过手掌归一化尺度精准区分剪刀手/大拇指/OK/比心/握拳/张开手掌，摆错手势即时拦截。</li>
+  </ul>
+
+  <!-- SECTION 6: TRAE & AI USAGE -->
+  <h2>五、TRAE 及 AI 工具使用情况与合规声明</h2>
+  <div class="flow-box">
+    <div style="font-size:12px;font-weight:700;color:#0c2342;margin-bottom:10px;">以 TRAE 为核心的 AI 协同研发流水线</div>
+    <div class="flow-steps">
+      <div class="flow-node"><div class="t">需求拆解</div><div class="d">TRAE Chat 梳理 PRD 与数据模型</div></div>
+      <div class="arrow">→</div>
+      <div class="flow-node"><div class="t">全栈编码</div><div class="d">TRAE Builder 生成 React + 3D 页面</div></div>
+      <div class="arrow">→</div>
+      <div class="flow-node"><div class="t">算法联调</div><div class="d">TRAE 调优 MediaPipe 21点判定</div></div>
+      <div class="arrow">→</div>
+      <div class="flow-node"><div class="t">精修上线</div><div class="d">Unslop 改版 + HTTPS 部署验证</div></div>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr><th style="width:22%">环节</th><th style="width:20%">使用工具</th><th>如实说明与合规标注</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>核心代码编写与重构</strong></td><td><strong>TRAE（主力 AI IDE）</strong></td><td>由 TRAE 辅助生成前端工程框架、Three.js 3D 知识图谱、3D 调用栈实验室、移动端底部 5 栏重构及部署脚本，人工负责产品决策、交互验收与真机测试。</td></tr>
+      <tr><td><strong>端侧手势识别</strong></td><td>TRAE + MediaPipe</td><td>采用 Apache-2.0 协议开源模型 <code>hand_landmarker.task</code>，结合 TRAE 编写的 21 关键点归一化几何分类器在浏览器端本地推理。</td></tr>
+      <tr><td><strong>课程素材与数据合规</strong></td><td>AI 辅助草拟 + 人工审校</td><td>内置《Python 程序设计与数据结构》课件、字幕与错题均为自建脱敏模拟数据，<strong>不涉及任何真实学生隐私或涉密数据</strong>；签到影像明示 24h 自动销毁并提供替代签到通道。</td></tr>
+    </tbody>
+  </table>
+
+  <!-- SECTION 7: 3-MIN PITCH -->
+  <h2>六、3 分钟现场路演材料（逐页演讲脚本）</h2>
+  <table>
+    <thead>
+      <tr><th style="width:10%">页码</th><th style="width:28%">路演主题与演示动作</th><th>核心演讲话术</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>P1–P2</strong></td><td>痛点切入（30s）</td><td>老师每天最耗时的是作业批改后的错因统计与讲评备课，而学生手机上操作繁琐、抽象算法听不懂。EduMind 打造教师桌面 + 学生移动的 AI 教学闭环。</td></tr>
+      <tr><td><strong>P3</strong></td><td>实操①：真机手势签到（45s）</td><td>打开 <code>https://sjz-wgh.cn/</code> 切学生端，展示 MediaPipe 21 点骨骼追踪：摆错手势实时拦截，摆对瞬间通过并把实拍照片回传至教师端一键复核。</td></tr>
+      <tr><td><strong>P4</strong></td><td>实操②：3D 实验 + 脱敏投屏（60s）</td><td>切教师端演示 3D 调用栈压栈/栈溢出反面案例；一键开启全屏「教室脱敏错例投屏模式」，展示匿名错解对比与苏格拉底追问提词卡，明天上课直接能用。</td></tr>
+      <tr><td><strong>P5</strong></td><td>实操③：变式点亮 3D 图谱（30s）</td><td>学生答对递归变式题后回到 3D 知识图谱——「递归与调用栈」节点实时从红色薄弱跃升为绿色掌握良好，闭环眼见为实。</td></tr>
+      <tr><td><strong>P6</strong></td><td>TRAE 研发、合规与复用（15s）</td><td>全流程依托 TRAE 高效落地，坚持数据脱敏与教师审核权，配置化架构可 10 分钟迁移至高校全学科与中小学研学。谢谢评委！</td></tr>
+    </tbody>
+  </table>
+
+</body>
+</html>
