@@ -7,7 +7,10 @@ export type NavPage =
   | 'knowledge-graph'
   | 'virtual-lab'
   | 'diagnostics'
-  | 'group-collab';
+  | 'group-collab'
+  | 'classes'
+  | 'courses'
+  | 'courseware';
 
 export type MasteryStatus = 'mastered' | 'needs-review' | 'weak' | 'unlearned';
 

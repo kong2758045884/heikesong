@@ -10,6 +10,7 @@ export interface Account {
 export interface Session {
   user: Account | null;
   pages: NavPage[];
+  studentOnly?: boolean;
 }
 
 export const ROLE_NAMES: Record<UserRole, string> = {
@@ -19,7 +20,7 @@ export const ROLE_NAMES: Record<UserRole, string> = {
 };
 
 export const WORKSPACE_PAGES: NavPage[] = [
-  'dashboard', 'checkin', 'classroom', 'knowledge-graph', 'virtual-lab', 'diagnostics', 'group-collab',
+  'dashboard', 'checkin', 'classroom', 'knowledge-graph', 'virtual-lab', 'diagnostics', 'group-collab', 'classes', 'courses', 'courseware',
 ];
 
 export class AuthError extends Error {

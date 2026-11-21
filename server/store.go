@@ -94,12 +94,20 @@ func (s *authStore) update(change func(*authData) error) error {
 	if err := change(&next); err != nil {
 		return err
 	}
-	file, err := os.CreateTemp(filepath.Dir(s.path), ".accounts-*")
+	if err := saveJSON(s.path, next); err != nil {
+		return err
+	}
+	s.data = next
+	return nil
+}
+
+func saveJSON(path string, value any) error {
+	file, err := os.CreateTemp(filepath.Dir(path), ".snapshot-*")
 	if err != nil {
 		return err
 	}
 	defer os.Remove(file.Name())
-	err = json.NewEncoder(file).Encode(next)
+	err = json.NewEncoder(file).Encode(value)
 	if err == nil {
 		err = file.Sync()
 	}
@@ -110,10 +118,9 @@ func (s *authStore) update(change func(*authData) error) error {
 	if closeErr != nil {
 		return closeErr
 	}
-	if err := os.Rename(file.Name(), s.path); err != nil {
+	if err := os.Rename(file.Name(), path); err != nil {
 		return err
 	}
-	s.data = next
 	return nil
 }
 

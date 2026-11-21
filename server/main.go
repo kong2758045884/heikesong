@@ -22,8 +22,13 @@ const sessionAge = 7 * 24 * time.Hour
 
 var usernamePattern = regexp.MustCompile(`^[\p{L}\p{N}@._-]{3,40}$`)
 var pages = []string{"dashboard", "checkin", "classroom", "knowledge-graph", "virtual-lab", "diagnostics", "group-collab"}
+var teacherPages = append(append([]string(nil), pages...), "classes", "courses", "courseware")
 
 type authServer struct {
+	studentAddr string
+	attendance  *attendanceStore
+	teaching    *teachingStore
+	models      *modelStore
 	store       *authStore
 	demo        bool
 	origin      *url.URL
@@ -31,8 +36,9 @@ type authServer struct {
 }
 
 type sessionView struct {
-	User  *account `json:"user"`
-	Pages []string `json:"pages"`
+	User        *account `json:"user"`
+	Pages       []string `json:"pages"`
+	StudentOnly bool     `json:"studentOnly,omitempty"`
 }
 
 type requestError struct {
@@ -76,7 +82,23 @@ func newServer() (*authServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	server := &authServer{store: store, demo: demo, teacherCode: os.Getenv("EDUMIND_TEACHER_CODE")}
+	teaching, err := openTeachingStore(dir)
+	if err != nil {
+		return nil, err
+	}
+	models, err := openModels(dir)
+	if err != nil {
+		return nil, err
+	}
+	server := &authServer{store: store, teaching: teaching, models: models, demo: demo, teacherCode: os.Getenv("EDUMIND_TEACHER_CODE")}
+	server.studentAddr, err = studentShareAddress(demo)
+	if err != nil {
+		return nil, err
+	}
+	server.attendance, err = openAttendance(dir)
+	if err != nil {
+		return nil, err
+	}
 	if value := os.Getenv("EDUMIND_ORIGIN"); value != "" {
 		origin, err := url.Parse(value)
 		if err != nil || (origin.Scheme != "https" && origin.Scheme != "http") ||
@@ -89,12 +111,18 @@ func newServer() (*authServer, error) {
 		server.origin = origin
 	}
 	if demo {
-		for _, item := range []struct{ role, name string }{
-			{"admin", "演示管理员"}, {"teacher", "演示教师"}, {"student", "演示学生"},
+		for _, item := range []struct{ role, previous, name string }{
+			{"admin", "演示管理员", "系统管理员"}, {"teacher", "演示教师", "任课教师"}, {"student", "演示学生", "学生"},
 		} {
 			if err := store.seed(item.role, item.name, item.role, "123456"); err != nil {
 				return nil, err
 			}
+			if err := store.renameStarterAccount(item.role, item.previous, item.name); err != nil {
+				return nil, err
+			}
+		}
+		if err := teaching.seedStarterClasses(store.data.Accounts["teacher"].ID); err != nil {
+			return nil, err
 		}
 		return server, nil
 	}
@@ -126,7 +154,16 @@ func viewFor(current *account) sessionView {
 	if current.Role == "admin" {
 		return sessionView{User: current, Pages: pages[:1]}
 	}
+	if current.Role == "teacher" {
+		return sessionView{User: current, Pages: teacherPages}
+	}
 	return sessionView{User: current, Pages: pages}
+}
+
+func requestSession(r *http.Request, user *account) sessionView {
+	view := viewFor(user)
+	view.StudentOnly = studentShareRequest(r)
+	return view
 }
 
 func (s *authServer) currentUser(r *http.Request) *account {
@@ -148,7 +185,7 @@ func (s *authServer) currentUser(r *http.Request) *account {
 }
 
 func (s *authServer) setCookie(w http.ResponseWriter, r *http.Request, token string, age int) {
-	secure := r.TLS != nil || s.origin != nil && s.origin.Scheme == "https"
+	secure := r.TLS != nil || !studentShareRequest(r) && s.origin != nil && s.origin.Scheme == "https"
 	http.SetCookie(w, &http.Cookie{
 		Name: cookieName, Value: token, Path: "/", MaxAge: age,
 		HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode,
@@ -162,6 +199,9 @@ func (s *authServer) sameOrigin(r *http.Request) bool {
 	value := r.Header.Get("Origin")
 	if value == "" {
 		return true
+	}
+	if studentShareRequest(r) {
+		return value == "http://"+r.Host
 	}
 	if s.origin != nil {
 		return value == s.origin.String()
@@ -206,6 +246,9 @@ func (s *authServer) authenticate(w http.ResponseWriter, r *http.Request, regist
 	}
 	var record accountRecord
 	if register {
+		if studentShareRequest(r) && input.Role != "student" {
+			return nil, problem(403, "此入口仅供学生注册和登录。")
+		}
 		switch input.Role {
 		case "student":
 		case "teacher":
@@ -238,6 +281,9 @@ func (s *authServer) authenticate(w http.ResponseWriter, r *http.Request, regist
 		if record.ID == "" || subtle.ConstantTimeCompare([]byte(actual), []byte(record.Hash)) != 1 {
 			return nil, problem(http.StatusUnauthorized, "账号或密码不正确。")
 		}
+	}
+	if studentShareRequest(r) && record.Role != "student" {
+		return nil, problem(403, "请使用学生账号访问本入口。")
 	}
 	token, err := randomHex(32)
 	if err != nil {
@@ -279,18 +325,31 @@ func (s *authServer) authenticate(w http.ResponseWriter, r *http.Request, regist
 		return nil, err
 	}
 	s.setCookie(w, r, token, int(sessionAge.Seconds()))
-	return viewFor(&record.account), nil
+	return requestSession(r, &record.account), nil
 }
 
 func (s *authServer) route(w http.ResponseWriter, r *http.Request) (any, error) {
-	if s.demo && !localHost(r.Host) {
-		return nil, problem(http.StatusForbidden, "此演示账号服务仅限本机使用。")
+	if s.demo && !localHost(r.Host) && !studentShareRequest(r) {
+		return nil, problem(http.StatusForbidden, "请从本机教师入口或局域网学生入口登录。")
 	}
-	if r.Method == http.MethodPost && !s.sameOrigin(r) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead && !s.sameOrigin(r) {
 		return nil, problem(http.StatusForbidden, "请在 EduMind 页面内发起操作。")
 	}
-	method := http.MethodGet
 	path := r.URL.Path
+	if strings.HasPrefix(path, "/api/attendance/") {
+		return s.attendanceRoute(w, r)
+	}
+	if strings.HasPrefix(path, "/api/teaching/") || path == "/api/models" || strings.HasPrefix(path, "/api/models/") {
+		user := s.currentUser(r)
+		if user == nil {
+			return nil, problem(401, "请先登录。")
+		}
+		if strings.HasPrefix(path, "/api/teaching/") {
+			return s.teachingRoute(w, r, user)
+		}
+		return s.modelsRoute(w, r, user)
+	}
+	method := http.MethodGet
 	switch path {
 	case "/api/auth/login", "/api/auth/register", "/api/auth/logout":
 		method = http.MethodPost
@@ -301,7 +360,7 @@ func (s *authServer) route(w http.ResponseWriter, r *http.Request) (any, error) 
 	}
 	switch path {
 	case "/api/auth/me":
-		return viewFor(s.currentUser(r)), nil
+		return requestSession(r, s.currentUser(r)), nil
 	case "/api/auth/login", "/api/auth/register":
 		return s.authenticate(w, r, path == "/api/auth/register")
 	case "/api/auth/logout":
@@ -315,7 +374,7 @@ func (s *authServer) route(w http.ResponseWriter, r *http.Request) (any, error) 
 			}
 		}
 		s.setCookie(w, r, "", -1)
-		return viewFor(nil), nil
+		return requestSession(r, nil), nil
 	}
 	if strings.HasPrefix(path, "/api/pages/") {
 		current := s.currentUser(r)
@@ -338,6 +397,12 @@ func (s *authServer) serveAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	data, err := s.route(w, r)
+	if file, ok := data.(teachingFile); ok && err == nil {
+		err = file.serve(w, r)
+		if err == nil {
+			return
+		}
+	}
 	if err != nil {
 		var apiErr *requestError
 		if !errors.As(err, &apiErr) {
@@ -359,6 +424,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	go server.attendance.runCleanup()
+	if server.studentAddr != "" {
+		go server.serveStudentShare()
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/", server.serveAPI)
 	if dir := os.Getenv("EDUMIND_STATIC_DIR"); dir != "" {
@@ -367,7 +436,7 @@ func main() {
 	log.Printf("EduMind auth listening on %s", addr)
 	httpServer := &http.Server{
 		Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: time.Minute,
+		ReadTimeout: 20 * time.Second, WriteTimeout: 45 * time.Second, IdleTimeout: time.Minute,
 	}
 	log.Fatal(httpServer.ListenAndServe())
 }

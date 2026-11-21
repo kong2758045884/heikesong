@@ -3,7 +3,8 @@ import {
   BookOpen,
   BrainCircuit,
   Camera,
-  CheckCircle2,
+  ClipboardList,
+  FolderKanban,
   FlaskConical,
   GraduationCap,
   Home,
@@ -12,14 +13,12 @@ import {
   Menu,
   Network,
   Settings,
-  ShieldCheck,
-  Sparkles,
   Users,
   X,
   ZapOff,
 } from 'lucide-react';
-import type { AIConfig, NavPage, UserRole } from '../types';
-import { loadAIConfig, saveAIConfig } from '../services/aiService';
+import type { NavPage, UserRole } from '../types';
+import { ModelManager } from './ModelManager';
 import { ROLE_NAMES, type Account } from '../services/authService';
 
 interface LayoutProps {
@@ -43,6 +42,9 @@ const DESKTOP_NAV: {
   roles: UserRole[];
 }[] = [
   { id: 'dashboard', label: '教学驾驶舱', icon: LayoutDashboard, roles: ['teacher', 'admin'] },
+  { id: 'classes', label: '班级管理', icon: Users, roles: ['teacher'] },
+  { id: 'courses', label: '课程管理', icon: FolderKanban, roles: ['teacher'] },
+  { id: 'courseware', label: '课件管理', icon: ClipboardList, roles: ['teacher'] },
   { id: 'checkin', label: '智能签到', icon: Camera, roles: ['teacher'] },
   { id: 'classroom', label: '实时课堂', icon: BookOpen, roles: ['teacher'] },
   { id: 'knowledge-graph', label: '3D 知识图谱', icon: Network, roles: ['teacher'] },
@@ -101,102 +103,7 @@ export const Layout: React.FC<LayoutProps> = ({
   );
 
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [aiConfig, setAiConfig] = useState<AIConfig>(() => loadAIConfig());
-  const [savedToast, setSavedToast] = useState(false);
-
-  const handleSaveConfig = () => {
-    saveAIConfig(aiConfig);
-    setSavedToast(true);
-    setTimeout(() => {
-      setSavedToast(false);
-      setSettingsOpen(false);
-    }, 700);
-  };
-
-  const settingsModal = settingsOpen ? (
-    <div className="fixed inset-0 z-[100] bg-slate-900/35 backdrop-blur-xs flex items-center justify-center p-4">
-      <div role="dialog" aria-modal="true" aria-labelledby="settings-title" className="workspace-settings w-full max-w-md rounded-2xl bg-white border border-sky-200 shadow-xl p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-sky-600" />
-            <h3 id="settings-title" className="font-semibold text-base text-slate-900">AI 服务引擎配置</h3>
-          </div>
-          <button
-            onClick={() => setSettingsOpen(false)}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-sky-50 cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="rounded-xl bg-sky-50 border border-sky-200 p-3 text-xs text-slate-700 leading-relaxed">
-          默认使用内置课程上下文 AI 引擎，无需配置 Key 即可完整体验。如需连接外部大模型 API，可在下方开启。
-        </div>
-
-        <label className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
-          <div>
-            <div className="text-sm font-medium text-slate-800">启用外部大模型 API</div>
-            <div className="text-xs text-slate-500">兼容 OpenAI / DeepSeek / 通义千问</div>
-          </div>
-          <input
-            type="checkbox"
-            checked={aiConfig.useRealApi}
-            onChange={(e) => setAiConfig({ ...aiConfig, useRealApi: e.target.checked })}
-            className="w-4 h-4 accent-sky-600"
-          />
-        </label>
-
-        {aiConfig.useRealApi && (
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs text-slate-600 mb-1">API Endpoint</label>
-              <input
-                type="text"
-                value={aiConfig.apiUrl}
-                onChange={(e) => setAiConfig({ ...aiConfig, apiUrl: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg bg-white border border-slate-300 text-xs text-slate-800 focus:outline-none focus:border-sky-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-600 mb-1">Model</label>
-              <input
-                type="text"
-                value={aiConfig.model}
-                onChange={(e) => setAiConfig({ ...aiConfig, model: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg bg-white border border-slate-300 text-xs text-slate-800 focus:outline-none focus:border-sky-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-600 mb-1">API Key（仅存本地）</label>
-              <input
-                type="password"
-                placeholder="sk-..."
-                value={aiConfig.apiKey}
-                onChange={(e) => setAiConfig({ ...aiConfig, apiKey: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg bg-white border border-slate-300 text-xs text-slate-800 focus:outline-none focus:border-sky-500"
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="flex justify-end gap-2 pt-1">
-          <button
-            onClick={() => setSettingsOpen(false)}
-            className="px-4 py-2 rounded-lg text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 cursor-pointer"
-          >
-            取消
-          </button>
-          <button
-            onClick={handleSaveConfig}
-            className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 cursor-pointer flex items-center gap-1.5"
-          >
-            {savedToast && <CheckCircle2 className="w-3.5 h-3.5" />}
-            {savedToast ? '已保存' : '保存'}
-          </button>
-        </div>
-      </div>
-    </div>
-  ) : null;
+  const settingsModal = settingsOpen && role !== 'student' ? <ModelManager onClose={() => setSettingsOpen(false)} /> : null;
 
   // =========================================================================
   // STUDENT MODE: DEDICATED CLEAN MOBILE APP LAYOUT WITH 5 BOTTOM TAB BUTTONS
@@ -226,14 +133,6 @@ export const Layout: React.FC<LayoutProps> = ({
 
             <div className="flex items-center gap-1.5">
               {logoutButton}
-              <button
-                onClick={() => setSettingsOpen(true)}
-              aria-label="AI 引擎配置"
-                className="p-2 rounded-lg text-slate-500 hover:text-sky-700 hover:bg-sky-50 cursor-pointer"
-                title="AI 引擎设置"
-              >
-                <Settings className="w-4 h-4" />
-              </button>
             </div>
           </header>
 
@@ -294,15 +193,6 @@ export const Layout: React.FC<LayoutProps> = ({
           <div>
             <div className="font-bold text-base text-slate-900 tracking-tight leading-none">EduMind</div>
             <div className="text-[11px] text-slate-500 mt-0.5">AI 智慧教学平台</div>
-          </div>
-        </div>
-
-        {/* Course Selector Card */}
-        <div className="workspace-course shrink-0 px-4 pt-4 pb-2">
-          <div className="rounded-xl bg-sky-50/80 border border-sky-100 p-3">
-            <div className="text-[11px] text-sky-700 font-medium">当前课程</div>
-            <div className="text-xs font-semibold text-slate-900 mt-0.5">Python 程序设计与数据结构</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">曲阜师范大学 · 软件1班 (40人)</div>
           </div>
         </div>
 
@@ -409,11 +299,11 @@ export const Layout: React.FC<LayoutProps> = ({
             </button>
             <button
               onClick={() => setSettingsOpen(true)}
-              aria-label="AI 引擎配置"
+              aria-label="AI 模型管理"
               className="min-h-10 min-w-10 justify-center px-2.5 rounded-lg text-xs font-medium bg-white text-slate-700 border border-slate-200 hover:border-sky-300 cursor-pointer flex items-center gap-1.5"
             >
               <Settings className="w-3.5 h-3.5 text-sky-600" />
-              <span className="hidden md:inline">AI 配置</span>
+              <span className="hidden md:inline">模型管理</span>
             </button>
             {logoutButton}
           </div>
@@ -422,12 +312,8 @@ export const Layout: React.FC<LayoutProps> = ({
         <section ref={contentArea} className="workspace-scroll flex flex-1 min-h-0 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain">
           <main className="workspace-content flex-1 p-4 lg:p-7 max-w-[1440px] w-full mx-auto">{children}</main>
 
-        <footer className="px-4 lg:px-7 py-3 border-t border-sky-100 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-2">
-          <span>EduMind AI 智慧教学平台 · 曲阜师范大学演示版</span>
-          <span className="flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            脱敏模拟教学数据 · AI 内容均支持教师审核
-          </span>
+          <footer className="border-t border-sky-100 px-4 py-3 text-[11px] text-slate-500 lg:px-7">
+            EduMind 智慧教学平台
           </footer>
         </section>
       </div>

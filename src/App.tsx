@@ -5,27 +5,32 @@ import { AuthError, checkPage, endSession, getSession, WORKSPACE_PAGES, type Acc
 import { setAIConfigAccount } from './services/aiService';
 import {
   getMasteryStatus,
-  INITIAL_CHECKINS,
   INITIAL_KNOWLEDGE_NODES,
   INITIAL_MISTAKES,
   INITIAL_SUGGESTIONS,
 } from './data/mockData';
-import { ClassroomPage } from './pages/ClassroomPage';
+import { LiveTeachingPage } from './pages/LiveTeachingPage';
+import { TeachingWorkspace } from './pages/TeachingWorkspace';
 import { DashboardPage } from './pages/DashboardPage';
 import { DiagnosticsAndAnalyticsPage } from './pages/DiagnosticsAndAnalyticsPage';
 import { GroupCollabPage } from './pages/GroupCollabPage';
 import { KnowledgeGraphPage } from './pages/KnowledgeGraphPage';
+import { useAttendance } from './services/attendanceService';
 import { SmartCheckInPage } from './pages/SmartCheckInPage';
 import { VirtualLabPage } from './pages/VirtualLabPage';
 import type {
-  CheckInRecord,
   KnowledgeNode,
   MistakeItem,
   NavPage,
   TeachingSuggestion,
 } from './types';
 
+function invitationCode() {
+  return /^#\/?join\/([0-9]{6})$/.exec(window.location.hash)?.[1];
+}
+
 function requestedPage(): NavPage {
+  if (invitationCode()) return 'classroom';
   const value = window.location.hash.replace(/^#\/?/, '');
   return WORKSPACE_PAGES.find((page) => page === value) ?? 'dashboard';
 }
@@ -37,11 +42,14 @@ function Workspace({ user, pages, onSession }: {
 }) {
   const role = user.role;
   const [currentPage, setCurrentPage] = useState<NavPage>(requestedPage);
+  const [pendingInvite, setPendingInvite] = useState(invitationCode);
   const [approvedPage, setApprovedPage] = useState<NavPage | null>(null);
   const [pageError, setPageError] = useState<{ page: NavPage; message: string } | null>(null);
   const [accessAttempt, setAccessAttempt] = useState(0);
   const [logoutBusy, setLogoutBusy] = useState(false);
   const [logoutError, setLogoutError] = useState('');
+  const [teachingCourse, setTeachingCourse] = useState<string>();
+  const [coursewareCourse, setCoursewareCourse] = useState<string>();
 
   function navigate(page: NavPage) {
     if (window.location.hash !== '#/' + page) window.location.hash = '/' + page;
@@ -49,7 +57,10 @@ function Workspace({ user, pages, onSession }: {
   }
 
   useEffect(() => {
-    const onLocationChange = () => setCurrentPage(requestedPage());
+    const onLocationChange = () => {
+      setCurrentPage(requestedPage());
+      setPendingInvite(invitationCode());
+    };
     window.addEventListener('hashchange', onLocationChange);
     return () => window.removeEventListener('hashchange', onLocationChange);
   }, []);
@@ -101,7 +112,7 @@ function Workspace({ user, pages, onSession }: {
     setLogoutError('');
     try {
       const session = await endSession();
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      if (!invitationCode()) window.history.replaceState(null, '', window.location.pathname + window.location.search);
       onSession(session);
     } catch {
       setLogoutError('暂时无法退出，请重试。');
@@ -113,29 +124,10 @@ function Workspace({ user, pages, onSession }: {
 
   // Shared reactive state across all modules for a genuine end-to-end closed loop
   const [nodes, setNodes] = useState<KnowledgeNode[]>(INITIAL_KNOWLEDGE_NODES);
-  const [checkIns, setCheckIns] = useState<CheckInRecord[]>(INITIAL_CHECKINS);
+  const attendance = useAttendance(role !== 'admin');
+  const checkIns = attendance.rounds.flatMap(round => round.entries);
   const [mistakes, setMistakes] = useState<MistakeItem[]>(INITIAL_MISTAKES);
   const [suggestions, setSuggestions] = useState<TeachingSuggestion[]>(INITIAL_SUGGESTIONS);
-
-  const handleApproveCheckIn = (id: string) => {
-    if (role !== 'teacher') return;
-    setCheckIns((prev) =>
-      prev.map((c) =>
-        c.id === id
-          ? {
-              ...c,
-              status: 'verified',
-              reason: `已由教师${user.displayName}人工复核确认在场`,
-            }
-          : c
-      )
-    );
-  };
-
-  const handleAddCheckIn = (record: CheckInRecord) => {
-    if (role !== 'student') return;
-    setCheckIns((prev) => [{ ...record, studentName: user.displayName }, ...prev]);
-  };
 
   const handleResolveMistake = (mistakeId: string, nodeId: string) => {
     setMistakes((prev) =>
@@ -164,7 +156,7 @@ function Workspace({ user, pages, onSession }: {
     setSuggestions((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s)));
   };
 
-  const pendingReviewCount = checkIns.filter((c) => c.status === 'review-needed').length;
+  const pendingReviewCount = checkIns.filter((c) => c.status === 'pending').length;
   const unresolvedMistakesCount = mistakes.filter((m) => !m.resolved).length;
 
   return (
@@ -203,6 +195,7 @@ function Workspace({ user, pages, onSession }: {
               displayName={user.displayName}
               nodes={nodes}
               checkIns={checkIns}
+              attendanceReady={attendance.loaded && !attendance.error}
               mistakes={mistakes}
               suggestions={suggestions}
               onUpdateSuggestion={handleUpdateSuggestion}
@@ -212,12 +205,24 @@ function Workspace({ user, pages, onSession }: {
           {currentPage === 'checkin' && (
             <SmartCheckInPage
               role={role}
-              checkIns={checkIns}
-              onApproveCheckIn={handleApproveCheckIn}
-              onAddCheckIn={handleAddCheckIn}
+              state={attendance}
+              onNavigate={navigate}
             />
           )}
-          {currentPage === 'classroom' && <ClassroomPage role={role} />}
+          {currentPage === 'classroom' && <LiveTeachingPage
+            role={role} preferredCourse={teachingCourse} onNavigate={navigate}
+            pendingInvite={pendingInvite}
+            onInviteUsed={() => {
+              window.history.replaceState(null, '', '#/classroom');
+              setPendingInvite(undefined);
+            }}
+          />}
+          {(currentPage === 'classes' || currentPage === 'courses' || currentPage === 'courseware') && role === 'teacher' && (
+            <TeachingWorkspace key={currentPage} page={currentPage} onNavigate={navigate}
+              initialCourseId={coursewareCourse}
+              onManageCourse={(id) => { setCoursewareCourse(id); navigate('courseware'); }}
+              onTeach={(id) => { setTeachingCourse(id); navigate('classroom'); }} />
+          )}
           {currentPage === 'knowledge-graph' && (
             <KnowledgeGraphPage
               role={role}
@@ -277,7 +282,7 @@ export function App() {
   }
   return session.user
     ? <Workspace key={session.user.id} user={session.user} pages={session.pages} onSession={applySession} />
-    : <LoginPage onSession={applySession} />;
+    : <LoginPage onSession={applySession} studentOnly={session.studentOnly} hasInvitation={!!invitationCode()} />;
 }
 
 export default App;

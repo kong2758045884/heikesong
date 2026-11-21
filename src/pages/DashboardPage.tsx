@@ -29,7 +29,6 @@ import {
 } from 'recharts';
 import { CLASS_TREND_DATA, ERROR_DIMENSION_DATA, STATUS_META } from '../data/mockData';
 import type {
-  CheckInRecord,
   KnowledgeNode,
   MistakeItem,
   NavPage,
@@ -37,11 +36,14 @@ import type {
   UserRole,
 } from '../types';
 
+import type { AttendanceEntry } from '../services/attendanceService';
+
 interface DashboardPageProps {
   role: UserRole;
   displayName: string;
   nodes: KnowledgeNode[];
-  checkIns: CheckInRecord[];
+  checkIns: AttendanceEntry[];
+  attendanceReady: boolean;
   mistakes: MistakeItem[];
   suggestions: TeachingSuggestion[];
   onUpdateSuggestion: (id: string, status: TeachingSuggestion['status']) => void;
@@ -53,15 +55,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   displayName,
   nodes,
   checkIns,
+  attendanceReady,
   mistakes,
   suggestions,
   onUpdateSuggestion,
   onNavigate,
 }) => {
-  const [completedTasks, setCompletedTasks] = useState<string[]>(['p1']);
+  const [completedTasks, setCompletedTasks] = useState<string[]>([]);
 
   const verifiedCount = checkIns.filter((c) => c.status === 'verified' || c.status === 'late').length;
-  const reviewNeededCount = checkIns.filter((c) => c.status === 'review-needed').length;
+  const reviewNeededCount = checkIns.filter((c) => c.status === 'pending').length;
+  const signedToday = checkIns.some(e => (e.status === 'verified' || e.status === 'late') && new Date(e.submitted).toDateString() === new Date().toDateString());
   const weakNodes = nodes.filter((n) => (role === 'teacher' ? n.classStatus : n.status) === 'weak');
   const unresolvedMistakes = mistakes.filter((m) => !m.resolved);
 
@@ -104,7 +108,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           {[
             { label: '活跃师生用户', value: '1,284', sub: '教师 46 · 学生 1,238', icon: Users, accent: 'text-sky-600' },
             { label: '今日 AI 推理调用', value: '2,890', sub: '平均延迟 420ms · 命中 RAG 84%', icon: Cpu, accent: 'text-blue-600' },
-            { label: '签到影像自动清理', value: '100%', sub: '24小时到期自动销毁，0 长期留存', icon: Lock, accent: 'text-emerald-600' },
+            { label: '签到影像自动清理', value: '24 小时', sub: '到期停止访问，服务定期清理照片', icon: Lock, accent: 'text-emerald-600' },
             { label: '异常越权拦截', value: '0 次', sub: 'RBAC 课程与班级数据严格隔离', icon: ShieldCheck, accent: 'text-indigo-600' },
           ].map((kpi) => (
             <div key={kpi.label} className="glass-panel rounded-2xl p-5">
@@ -232,15 +236,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             className="glass-panel rounded-2xl p-5 hover:border-sky-400 transition-all cursor-pointer"
           >
             <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
-              <span>本节 AI 智能签到</span>
+              <span>我的签到场次 · 累计通过</span>
               <Camera className="w-4 h-4 text-sky-500" />
             </div>
             <div className="text-3xl font-bold text-slate-900">
-              {verifiedCount}/{checkIns.length}
-              <span className="text-sm font-normal text-slate-400 ml-1">样本</span>
+              {attendanceReady ? verifiedCount + '/' + checkIns.length : '—'}
+              <span className="text-sm font-normal text-slate-400 ml-1">条提交</span>
             </div>
             <div className="text-xs text-amber-600 font-medium mt-1">
-              {reviewNeededCount > 0 ? `${reviewNeededCount} 条异常待教师一键复核 →` : '全部复核完成 ✓'}
+              {!attendanceReady ? '等待签到服务同步' : reviewNeededCount ? reviewNeededCount + ' 条待复核 →' : checkIns.length ? '暂无待复核记录' : '尚无签到提交'}
             </div>
           </div>
 
@@ -429,7 +433,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     {
       id: 'p1',
       step: '01',
-      title: '完成今日 AI 智能课堂签到（实拍 + 手势 + 黑板联验）',
+      title: '完成今日课堂签到',
       tag: '课前准备',
       page: 'checkin' as NavPage,
     },
@@ -540,12 +544,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-slate-900">AI 个性化学习路径</h2>
           <span className="text-[11px] text-sky-600 font-semibold tabular-nums">
-            {completedTasks.length}/{learningPath.length}
+            {completedTasks.length + Number(signedToday)}/{learningPath.length}
           </span>
         </div>
         <div className="space-y-2">
           {learningPath.map((item) => {
-            const done = completedTasks.includes(item.id);
+            const done = item.id === 'p1' ? signedToday : completedTasks.includes(item.id);
             return (
               <div
                 key={item.id}
@@ -555,7 +559,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <button
-                    onClick={() => toggleTask(item.id)}
+                    onClick={() => item.id === 'p1' ? onNavigate('checkin') : toggleTask(item.id)}
                     className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 cursor-pointer ${
                       done
                         ? 'bg-emerald-500 border-emerald-500 text-white'

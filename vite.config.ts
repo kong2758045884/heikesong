@@ -5,6 +5,8 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    fs: { deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '**/server/**', '**/.local/**'] },
+    watch: { ignored: ['**/.local/**', '**/server/**'] },
     proxy: {
       '/api': { target: 'http://127.0.0.1:18768', changeOrigin: false },
     },

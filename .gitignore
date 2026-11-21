@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 
 .local/
+
+/server/model_credentials.local.go

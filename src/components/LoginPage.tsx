@@ -4,7 +4,11 @@ import { startSession, type Session } from '../services/authService';
 
 const inputStyle = 'min-h-12 w-full rounded-xl border border-sky-200 bg-sky-50/60 px-3.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100';
 
-export function LoginPage({ onSession }: { onSession: (session: Session) => void }) {
+export function LoginPage({ onSession, studentOnly = false, hasInvitation = false }: {
+  onSession: (session: Session) => void;
+  studentOnly?: boolean;
+  hasInvitation?: boolean;
+}) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [role, setRole] = useState<'student' | 'teacher'>('student');
   const [reveal, setReveal] = useState(false);
@@ -61,7 +65,7 @@ export function LoginPage({ onSession }: { onSession: (session: Session) => void
           </section>
           <section className="min-w-0 px-6 py-7 sm:px-9 md:px-11 md:py-12" aria-labelledby="login-title">
             <h2 id="login-title" className="text-2xl font-bold tracking-tight text-slate-900">{registering ? '创建 EduMind 账号' : '登录 EduMind'}</h2>
-            <p className="mt-2 text-sm text-slate-600">{registering ? '选择账号身份并填写登录信息。' : '请使用你的账号和密码登录。'}</p>
+            <p className="mt-2 text-sm text-slate-600">{hasInvitation ? '已收到加入邀请，请使用学生账号继续。' : registering ? '填写账号信息并创建账户。' : '请使用你的账号和密码登录。'}</p>
             <div className="mt-6 grid grid-cols-2 gap-1 rounded-xl border border-sky-100 bg-sky-50 p-1" role="group" aria-label="账号操作">
               {(['login', 'register'] as const).map((tab) => (
                 <button key={tab} type="button" aria-pressed={mode === tab} disabled={busy} onClick={() => switchMode(tab)}
@@ -73,13 +77,13 @@ export function LoginPage({ onSession }: { onSession: (session: Session) => void
             <form onSubmit={handleSubmit} className="mt-5 grid gap-3.5">
               {registering && (
                 <>
-                  <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
+                  {!studentOnly && !hasInvitation && <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
                     身份
                     <select className={inputStyle} value={role} onChange={(event) => setRole(event.target.value === 'teacher' ? 'teacher' : 'student')}>
                       <option value="student">学生</option>
                       <option value="teacher">教师</option>
                     </select>
-                  </label>
+                  </label>}
                   <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
                     显示名称（选填）
                     <input name="displayName" maxLength={48} autoComplete="nickname" className={inputStyle} placeholder="输入工作台显示的名称" />
