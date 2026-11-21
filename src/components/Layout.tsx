@@ -212,7 +212,7 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
 
         {/* Mobile App Shell */}
-        <div className="w-full sm:max-w-[430px] min-h-screen sm:min-h-0 sm:h-[820px] bg-[#f4f9ff] sm:rounded-[28px] sm:border sm:border-sky-200 sm:shadow-[0_20px_50px_-15px_rgba(14,165,233,0.18)] flex flex-col overflow-hidden relative">
+        <div className="w-full sm:max-w-[430px] min-h-screen sm:min-h-0 sm:h-[calc(100vh-76px)] sm:max-h-[800px] bg-[#f4f9ff] sm:rounded-[28px] sm:border sm:border-sky-200 sm:shadow-[0_20px_50px_-15px_rgba(14,165,233,0.18)] flex flex-col overflow-hidden relative">
           {/* Clean Mobile Top App Bar */}
           <header className="sticky top-0 z-20 h-14 px-4 bg-white/95 backdrop-blur-md border-b border-sky-100 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
