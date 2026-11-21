@@ -30,8 +30,8 @@ func TestSampleQuestionsAndCorrespondingVariants(t *testing.T) {
 
 func TestUnconfiguredGeneratorPreservesFallbackIdentity(t *testing.T) {
 	t.Setenv("AI_API_KEY", "")
-	draft, err := generateDraft(context.Background(), GenerateInput{Subject: "语文", Grade: "八年级", Topic: "古诗意象"})
-	if err != nil || draft.Source != "预置示例（未配置 AI）" || draft.Topic != sampleDraft().Topic || draft.Subject != "数学" {
+	draft, err := generateDraft(context.Background(), GenerateInput{Subject: "大学语文", Grade: "大一", Topic: "诗歌意象", Material: "本节讨论比兴手法。"})
+	if err != nil || draft.Source != "预置示例（未配置 AI）" || draft.Topic != sampleDraft().Topic || draft.Subject != "Python 程序设计" || draft.Material != recursionMaterial {
 		t.Fatalf("example mislabeled: %#v / %v", draft, err)
 	}
 }
@@ -39,7 +39,7 @@ func TestUnconfiguredGeneratorPreservesFallbackIdentity(t *testing.T) {
 func TestGeneratorBackendContract(t *testing.T) {
 	t.Setenv("AI_API_KEY", "test-only")
 	t.Setenv("AI_MODEL", "classroom-model")
-	in := GenerateInput{Subject: "数学", Grade: "七年级", Topic: "移项练习"}
+	in := GenerateInput{Subject: "程序设计", Grade: "大一", Topic: "递归求和", Material: "本节只讨论非负整数。"}
 	raw, err := json.Marshal(sampleDraft())
 	if err != nil {
 		t.Fatal(err)
@@ -65,7 +65,7 @@ func TestGeneratorBackendContract(t *testing.T) {
 					Model    string
 					Messages []struct{ Role, Content string }
 				}
-				if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.Model != "classroom-model" || len(payload.Messages) != 2 || !strings.Contains(payload.Messages[1].Content, in.Topic) {
+				if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.Model != "classroom-model" || len(payload.Messages) != 2 || !strings.Contains(payload.Messages[1].Content, in.Topic) || !strings.Contains(payload.Messages[1].Content, in.Material) {
 					t.Errorf("missing teaching context or model: %v", err)
 				}
 				w.WriteHeader(tc.status)
@@ -77,10 +77,10 @@ func TestGeneratorBackendContract(t *testing.T) {
 			if err != nil || d.Source != tc.source {
 				t.Fatalf("source=%q err=%v", d.Source, err)
 			}
-			if tc.name == "valid" && d.Topic != in.Topic {
+			if tc.name == "valid" && (d.Topic != in.Topic || d.Material != in.Material) {
 				t.Errorf("lost topic")
 			}
-			if tc.name != "valid" && d.Topic != sampleDraft().Topic {
+			if tc.name != "valid" && (d.Topic != sampleDraft().Topic || d.Material != recursionMaterial) {
 				t.Errorf("mislabeled fallback topic")
 			}
 		})

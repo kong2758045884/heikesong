@@ -7,17 +7,20 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="theme-color" content="#f9f7ef" />
-    <title>学生答题 · 随堂三问</title>
+    <title>学生课堂 · EduMind · 随堂三问</title>
     <link rel="icon" href="/brand.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/student.css" />
+    <link rel="stylesheet" href="/stack-lab.css">
+    <script type="module" src="/stack-lab.js"></script>
     <script defer src="/student.js"></script>
   </head>
   <body>
     <main class="phone">
       <header class="brandbar">
         <div class="brand">
-          <img src="/brand.svg" width="32" height="32" alt="" /><b>随堂三问</b
-          ><span class="brand-divider"></span><span class="role">学生端</span>
+          <img src="/brand.svg" width="32" height="32" alt="">
+          <b><span class="latinmark">EduMind</span> · 随堂三问</b>
+          <span class="brand-divider"></span><span class="role">学生端</span>
         </div>
         <span id="session-tag" class="session-tag" hidden></span>
       </header>
@@ -33,6 +36,28 @@
       <noscript
         >请在浏览器中启用 JavaScript，以便匿名提交和接收老师的巩固题。</noscript
       >
+      <dialog id="course-desk" aria-labelledby="resource-title">
+        <header class="resource-head">
+          <h2 id="resource-title">课堂资料</h2>
+          <button id="leave-resource" class="resource-close" type="button">关闭</button>
+        </header>
+        <div class="resource-tabs" aria-label="课堂资料栏目">
+          <button type="button" data-resource-tab="reading" aria-pressed="true">课程讲义</button>
+          <button type="button" data-resource-tab="asking" aria-pressed="false">讲义答疑</button>
+        </div>
+        <section id="reading" aria-label="课程讲义">
+          <h3 id="reading-title"></h3>
+          <p id="reading-material"></p>
+        </section>
+        <section id="asking" aria-label="讲义答疑" hidden>
+          <form id="ask-form">
+            <label for="course-question">你对讲义中的哪一处有疑问？</label>
+            <textarea id="course-question" maxlength="300" rows="3" placeholder="输入概念、条件或想弄清的一步" required></textarea>
+            <button class="primary" id="ask-submit" type="submit">根据讲义回答</button>
+          </form>
+          <div id="ask-result" role="status" aria-live="polite"></div>
+        </section>
+      </dialog>
     </main>
   </body>
 </html>

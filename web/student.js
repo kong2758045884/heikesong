@@ -66,11 +66,13 @@ let work = {
   step: 0,
   answers: [null, null, null],
   variantAnswer: null,
+  reviewed: [],
 };
 try {
   const old = JSON.parse(cache?.getItem(diskKey) || "null");
   if (old && /^[a-f0-9]{32}$/.test(old.sessionId)) {
     work.sessionId = old.sessionId;
+    work.reviewed = Array.isArray(old.reviewed) ? old.reviewed.filter(i => Number.isInteger(i) && i >= 0 && i <= 3) : [];
     work.step =
       Number.isInteger(old.step) && old.step >= 0 && old.step < 3
         ? old.step
@@ -106,7 +108,7 @@ if (!work.sessionId && roomCode) {
 
 async function api(path, body) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 9000);
+  const timeout = setTimeout(() => controller.abort(), path === "ask" ? 45000 : 9000);
   try {
     const headers = {
       Accept: "application/json",
@@ -134,6 +136,17 @@ async function api(path, body) {
   }
 }
 
+function notebookSketch() {
+  if (snapshot.topic === "递归出口与调用栈") {
+    return `<path d="M13 48h48M13 48V17" stroke="#8b97bf"/>
+      <g stroke="#314795" fill="#e0e8fa" stroke-width="1.4">
+        <path d="m18 40 22-6 18 5-22 6z"/><path d="m18 32 22-6 18 5-22 6z"/><path d="m18 24 22-6 18 5-22 6z"/>
+      </g><path d="M42 9v8m-3-3 3 3 3-3" stroke="#bd462b" fill="none" stroke-width="2"/>`;
+  }
+  return `<path d="M9 49h55M19 57V8" stroke="#8b97bf"/>
+    <path d="M22 44 38 17l19 24-35 3Z" stroke="#2843a0" stroke-width="1.8"/>
+    <g fill="#c5462b"><circle cx="22" cy="44" r="2.3"/><circle cx="38" cy="17" r="2.3"/><circle cx="57" cy="41" r="2.3"/></g>`;
+}
 function topicCover() {
   const closed = snapshot.phase === "closed";
   const status = closed
@@ -156,9 +169,7 @@ function topicCover() {
         <i class="sheet under"></i>
         <i class="sheet front">
           <svg class="draft-diagram" viewBox="0 0 75 64" fill="none">
-            <path d="M9 49h55M19 57V8" stroke="#8b97bf" stroke-width="1"/>
-            <path d="M22 44 38 17l19 24-35 3Z" stroke="#2843a0" stroke-width="1.8"/>
-            <g fill="#c5462b"><circle cx="22" cy="44" r="2.3"/><circle cx="38" cy="17" r="2.3"/><circle cx="57" cy="41" r="2.3"/></g>
+            ${notebookSketch()}
           </svg>
         </i>
         <i class="pencil"><i></i></i>
@@ -236,6 +247,44 @@ function questionView(variant) {
     </div>
   </form>`;
 }
+function resources() {
+  if (!snapshot.material?.trim()) return "";
+  return `<nav class="resource-tools" aria-label="课程学习资料">
+    <button type="button" data-resource="reading">${glyph("book")}课程讲义</button>
+    <button type="button" data-resource="asking">${glyph("feedback")}讲义答疑</button>
+  </nav>`;
+}
+
+function revisionList(entries) {
+  const toReview = entries.map((entry, index) => ({...entry, index}))
+    .filter(({ selected, correct }) => validAnswer(selected) && validAnswer(correct) && selected !== correct);
+  if (!toReview.length) {
+    return '<section class="revision"><h2>本次复习清单</h2><p>已开放反馈的题目中，暂无错题需要回看。</p></section>';
+  }
+  const actions = [
+    "遮住解析，用自己的话重述正确选项，再指出原选项遗漏的条件。",
+    "对照原选项和正确选项，写下一处会改变结论的差别。",
+    "换一个条件再推演一次，检查原先那一步会得到什么结果。",
+    "回看巩固题，把这一次修正的解题步骤写在笔记里。"
+  ];
+  function actionFor(q, index) {
+    if (snapshot.topic === "递归出口与调用栈" && q.prompt.includes("执行 total(3)")) {
+      return "从 total(0) 开始画出四个栈帧，逐层填写返回值，再圈出最终交给调用者的值。";
+    }
+    return actions[index];
+  }
+  const tasks = toReview.map(({q, selected, correct, explanation, title, index}) => `
+    <li>
+      <label><input type="checkbox" data-review="${index}" ${work.reviewed.includes(index) ? "checked" : ""}>
+        <b>${escapeText(title)}</b><span>已复习</span>
+      </label>
+      <p class="revision-action">${actionFor(q, index)}</p>
+      <p>原选 ${optionLetter(selected)}「${escapeText(q.options[selected])}」 · 正确 ${optionLetter(correct)}「${escapeText(q.options[correct])}」</p>
+      <details><summary>回看解析</summary><p>${escapeText(explanation)}</p></details>
+    </li>`).join("");
+  return `<section class="revision"><h2>本次复习清单</h2><ul>${tasks}</ul></section>`;
+}
+
 function review() {
   const fb = snapshot.feedback;
   if (!fb || !snapshot.submitted) return "";
@@ -284,7 +333,7 @@ function review() {
         glyph("feedback") +
         "我的答题反馈</h2>" +
         details +
-        "</section>"
+        "</section>" + revisionList(entries)
     : "";
 }
 function receipt() {
@@ -323,8 +372,11 @@ function render() {
     : "匿名参与 · 当前浏览器无法保存进度，请保持页面打开";
   screen.innerHTML =
     topicCover() +
+    resources() +
     content +
     (snapshot.submitted ? review() : "") +
+    (snapshot.submitted && snapshot.topic === "递归出口与调用栈"
+      ? '<details class="stack-practice"><summary>动手推演调用栈</summary><edu-stack></edu-stack></details>' : "") +
     '<p class="privacy">' +
     glyph("shield") +
     note +
@@ -392,7 +444,7 @@ function accept(state) {
   if (key !== snapshotKey) {
     snapshotKey = key;
     render();
-    document.title = state.topic + " · 随堂三问";
+    document.title = state.topic + " · EduMind · 随堂三问";
     if (hasNewVariant) announcement.textContent = "老师发布了新的巩固题。";
   }
 }
@@ -481,6 +533,14 @@ async function submit(variant) {
   schedule();
 }
 screen.addEventListener("change", (event) => {
+  const task = event.target.closest("input[data-review]");
+  if (task) {
+    const index = Number(task.dataset.review);
+    work.reviewed = work.reviewed.filter(item => item !== index);
+    if (task.checked) work.reviewed.push(index);
+    remember();
+    return;
+  }
   const input = event.target.closest('input[name="choice"]');
   if (!input || sending) return;
   const answer = Number(input.value);
@@ -514,9 +574,63 @@ screen.addEventListener("submit", (event) => {
   else if (work.answers.every(validAnswer)) submit(false);
   else moveStep(work.answers.findIndex((value) => !validAnswer(value)));
 });
+const resourceDialog = document.querySelector("#course-desk");
+const questionInput = document.querySelector("#course-question");
+const askSubmit = document.querySelector("#ask-submit");
+const resultPanel = document.querySelector("#ask-result");
+let lastResource = "reading";
+
+function showResource(tab) {
+  if (!snapshot.material?.trim()) return;
+  lastResource = tab;
+  document.querySelector("#reading-title").textContent = snapshot.topic;
+  const material = snapshot.material.trim();
+  const withoutHeading = material.split("\n")[0].trim() === snapshot.topic ? material.slice(material.indexOf("\n") + 1).trimStart() : material;
+  document.querySelector("#reading-material").textContent = withoutHeading;
+  for (const section of ["reading", "asking"]) {
+    document.getElementById(section).hidden = section !== tab;
+    resourceDialog.querySelector(`[data-resource-tab="${section}"]`).setAttribute("aria-pressed", String(section === tab));
+  }
+  if (!resourceDialog.open) resourceDialog.showModal();
+}
+document.querySelector("#leave-resource").onclick = () => resourceDialog.close();
+resourceDialog.addEventListener("close", () => screen.querySelector(`[data-resource="${lastResource}"]`)?.focus({preventScroll:true}));
+document.querySelector("#ask-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const question = questionInput.value.trim();
+  if (!question || askSubmit.disabled) {
+    questionInput.focus();
+    return;
+  }
+  askSubmit.disabled = true;
+  questionInput.readOnly = true;
+  resultPanel.setAttribute("aria-busy", "true");
+  resultPanel.textContent = "正在查阅本课讲义…";
+  try {
+    const reply = await api("ask", {question});
+    const quote = typeof reply.source === "string" ? reply.source.trim() : "";
+    if (quote) {
+      const fromModel = reply.mode === "ai" || reply.mode === "AI 讲义问答";
+      const mode = fromModel ? "AI 讲义问答" : "讲义检索";
+      resultPanel.innerHTML = `<p class="answer-mode">${mode}</p>
+        <h3>${escapeText(question)}</h3>
+        <p class="grounded-answer">${escapeText(reply.answer)}</p>
+        <h4>讲义原文</h4><blockquote>${escapeText(quote)}</blockquote>`;
+    } else {
+      resultPanel.innerHTML = `<h3>本次答疑没有可引用的讲义原文</h3><p>${escapeText(reply.answer || "请换用讲义中的术语重新提问，或向任课教师确认。")}</p>`;
+    }
+  } catch (err) {
+    resultPanel.textContent = err.status ? err.message : "暂未收到答复。请检查网络后再次提问。";
+  } finally {
+    resultPanel.removeAttribute("aria-busy");
+    askSubmit.disabled = false;
+    questionInput.readOnly = false;
+  }
+});
 document.addEventListener("click", (event) => {
   const btn = event.target.closest("button");
   if (!btn || btn.disabled) return;
+  if (btn.dataset.resource || btn.dataset.resourceTab) showResource(btn.dataset.resource || btn.dataset.resourceTab);
   if (btn.hasAttribute("data-back") && !sending && work.step > 0)
     moveStep(work.step - 1);
   if (btn.hasAttribute("data-sync")) sync(true);

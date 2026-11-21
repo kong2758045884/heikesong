@@ -330,9 +330,7 @@ nav button:hover,
 .model-host:active {
   cursor: grabbing;
 }
-.model-stage.scale .model-poster {
-  background: url("/assets/balance.png") center / contain no-repeat;
-}
+
 .model-stage.rendered .model-poster {
   visibility: hidden;
 }

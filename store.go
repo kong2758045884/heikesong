@@ -18,9 +18,10 @@ import (
 )
 
 type GenerateInput struct {
-	Subject string `json:"subject"`
-	Grade   string `json:"grade"`
-	Topic   string `json:"topic"`
+	Subject  string `json:"subject"`
+	Grade    string `json:"grade"`
+	Topic    string `json:"topic"`
+	Material string `json:"material"`
 }
 
 type Question struct {
@@ -55,6 +56,7 @@ type Draft struct {
 	Grade     string     `json:"grade"`
 	Topic     string     `json:"topic"`
 	Source    string     `json:"source"`
+	Material  string     `json:"material"`
 	Questions []Question `json:"questions"`
 	Variants  []Question `json:"variants"`
 }
@@ -101,7 +103,10 @@ func validText(s string, limit int) bool {
 
 func validateInput(in GenerateInput) error {
 	if !validText(in.Subject, 64) || !validText(in.Grade, 64) || !validText(in.Topic, 240) {
-		return problem(400, "请填写学科、年级及知识点，知识点限 240 字。")
+		return problem(400, "请填写课程、授课对象及知识点，知识点限 240 字。")
+	}
+	if utf8.RuneCountInString(in.Material) > 6000 {
+		return problem(400, "课程讲义最多可填 6000 字。")
 	}
 	return nil
 }
@@ -133,7 +138,7 @@ func validateQuestion(q Question) error {
 }
 
 func validateDraft(d Draft) error {
-	if err := validateInput(GenerateInput{d.Subject, d.Grade, d.Topic}); err != nil {
+	if err := validateInput(GenerateInput{Subject: d.Subject, Grade: d.Grade, Topic: d.Topic, Material: d.Material}); err != nil {
 		return err
 	}
 	if utf8.RuneCountInString(d.Source) > 100 {

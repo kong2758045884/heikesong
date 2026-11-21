@@ -89,17 +89,18 @@ func TestClassroomHTTPLifecycleAndRestart(t *testing.T) {
 	if public["feedback"] != nil || public["variant"] != nil {
 		t.Fatal("feedback before submission")
 	}
-	first := map[string][]int{"answers": {d.Questions[0].Correct, 0, d.Questions[2].Correct}}
+	wrong := (d.Questions[1].Correct + 1) % 4
+	first := map[string][]int{"answers": {d.Questions[0].Correct, wrong, d.Questions[2].Correct}}
 	api.call("POST", prefix+"answers", ids[0], map[string]any{"answers": []any{0, nil, 0}}, 400, nil)
 	api.call("POST", prefix+"answers", ids[0], first, 200, &state)
 	if !state.Submitted || state.Feedback == nil || state.Feedback.VariantCorrect != nil {
 		t.Fatal("wrong first feedback")
 	}
 	api.call("POST", prefix+"answers", ids[0], first, 200, nil)
-	api.call("POST", prefix+"answers", ids[0], map[string][]int{"answers": {2, 1, 1}}, 409, nil)
+	api.call("POST", prefix+"answers", ids[0], map[string][]int{"answers": {(d.Questions[0].Correct + 1) % 4, wrong, d.Questions[2].Correct}}, 409, nil)
 	api.call("POST", prefix+"answers", ids[1], first, 200, nil)
 	api.call("GET", prefix+"stats", created.TeacherToken, nil, 200, &stats)
-	if stats.Joined != 3 || stats.Submitted != 2 || stats.Pending != 1 || stats.Questions[1].Counts[0] != 2 || stats.Questions[1].Right != 0 {
+	if stats.Joined != 3 || stats.Submitted != 2 || stats.Pending != 1 || stats.Questions[1].Counts[wrong] != 2 || stats.Questions[1].Right != 0 {
 		t.Fatalf("incorrect stats: %+v", stats)
 	}
 	q := d.Variants[1]

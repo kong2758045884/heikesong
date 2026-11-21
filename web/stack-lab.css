@@ -1,0 +1,130 @@
+edu-stack {
+  display: block;
+  background: #18273e;
+  color: #f0f4fa;
+  padding: 16px 20px;
+  font-family: system-ui, sans-serif;
+  isolation: isolate;
+}
+edu-stack .stack-code {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  color: #cad8e8;
+  font-size: 12px;
+}
+edu-stack .stack-code > span {
+  font-family: monospace;
+  font-size: 13px;
+  color: #b5dbec;
+  letter-spacing: 0.05em;
+}
+edu-stack code {
+  font:
+    12px/1.5 "DejaVu Sans Mono",
+    monospace;
+  color: #d4e2f1;
+  white-space: nowrap;
+}
+edu-stack .stack-view {
+  height: 178px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  background-image:
+    linear-gradient(#d8f1ff0a 1px, transparent 1px),
+    linear-gradient(90deg, #d8f1ff0a 1px, transparent 1px);
+  background-size: 16px 16px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+edu-stack .stack-stack {
+  position: relative;
+  width: 166px;
+  height: 100%;
+}
+edu-stack .stack-frame {
+  position: absolute;
+  left: calc(4px * var(--depth));
+  bottom: calc(12px + 20px * var(--depth));
+  width: 141px;
+  height: 47px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  background: #7a95d7;
+  color: #152246;
+  border: 1px solid #b4c4f4;
+  box-shadow: 3px 5px 0 #405695;
+  transform: skewY(-8deg);
+  font: 600 16px/1.1 monospace;
+}
+edu-stack .stack-frame.active {
+  background: #ffbd85;
+  color: #512f20;
+  box-shadow: 3px 5px 0 #bd764d;
+  border-color: #ffdab2;
+}
+edu-stack .stack-frame small {
+  font: 11px system-ui;
+  color: inherit;
+}
+edu-stack .stack-value {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  font: 13px monospace;
+  color: #c8def0;
+}
+edu-stack .stack-done {
+  display: block;
+  text-align: center;
+  padding-top: 72px;
+  color: #d8ecfc;
+}
+edu-stack .stack-caption {
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 8px 0 12px;
+  min-height: 1.5em;
+  color: #edf3fb;
+}
+edu-stack .stack-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid #536074;
+  padding-top: 10px;
+}
+edu-stack .stack-tools label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-right: auto;
+  font-size: 13px;
+  color: #cfdfec;
+}
+edu-stack .stack-tools select,
+edu-stack .stack-tools button {
+  height: 34px;
+  min-height: 34px;
+  width: auto;
+  padding: 0 9px;
+  background: #243750;
+  border: 1px solid #6e84a3;
+  color: white;
+  border-radius: 4px;
+  font-size: 13px;
+}
+edu-stack .stack-tools button:last-child {
+  background: #e0ecfd;
+  color: #1a3457;
+}
+edu-stack .stack-tools button:disabled {
+  opacity: 0.48;
+}
+
+edu-stack .stack-frame:not(.active){align-items:flex-end;padding-bottom:2px;font-size:13px}

@@ -1,3 +1,4 @@
+import "./stack-lab.js";
 import { icon } from "./icons.js";
 import { createBoardViews } from "./board-design.js";
 import { qrURL } from "./assets/qr.js";
@@ -150,12 +151,12 @@ async function model(rates) {
     host.parentElement?.classList.add("poster-only");
   }
 }
-function stage(mode = "scale") {
+function stage(mode = "bars") {
   return (
     '<div class="model-stage ' +
     mode +
     '"><div class="model-floor"></div><div class="model-poster"></div><div class="model-host" tabindex="0" role="img" aria-label="' +
-    (mode === "scale" ? "可旋转的立体等式天平" : "三层答对比例的立体柱形图") +
+    "三层答对比例的立体柱形图" +
     '，左右方向键旋转"></div><span class="model-caption">' +
     icon("rotate", 15) +
     "拖动旋转</span></div>"
@@ -203,7 +204,7 @@ $("#help").onclick = () =>
     modalTitle("课堂使用指南") +
       '<div class="guide">' +
       [
-        "选择学科、年级并输入刚讲完的知识点。生成题目后，逐题核对选项、答案和误区。",
+        "选择高校课程、授课年级并粘贴本节课的讲义。生成题目后，逐题核对选项、答案和误区。",
         "确认发布，将二维码投到大屏。学生扫码匿名作答，大屏按真实提交更新。",
         "点击一个集中的错误选项，和学生讨论解题依据。审核巩固题后推送，查看同批学生的两轮表现。",
       ]
@@ -224,52 +225,41 @@ function workspaceCrumb(label, extra = "") {
     "</span></div>"
   );
 }
+const isRecursion = (topic) => topic === "递归出口与调用栈";
 function setupHero() {
   return (
-    '<aside class="book-cover"><div class="cover-top"><span>' +
+    '<aside class="book-cover campus-cover"><div class="cover-top"><span>' +
     icon("book", 17) +
-    "随堂讲义</span><span>" +
+    "大学课程讲义</span><span>" +
     safe(draft.grade) +
     " / " +
     safe(draft.subject) +
     "</span></div><h1>" +
-    (draft.topic === "一元一次方程的移项"
-      ? '<span class="book-line">一元一次方程</span><span class="book-line">的移项</span>'
-      : safe(draft.topic)) +
-    '</h1><div class="cover-art" id="coverArt"><img class="cover-photo" src="/assets/lesson-cover.webp" alt="木尺、色块与球组成的平衡教具"></div><div class="cover-bottom"><span>三层理解诊断</span><button type="button" id="coverModel">' +
-    icon("rotate", 16) +
-    "旋转教具</button></div></aside>"
+    safe(draft.topic) +
+    "</h1>" +
+    (isRecursion(draft.topic)
+      ? "<edu-stack></edu-stack>"
+      : '<p class="course-overview">' +
+        safe(
+          (
+            draft.material || "教师审核后发布三问，全班扫码参与课堂诊断。"
+          ).slice(0, 200),
+        ) +
+        "</p>") +
+    "</aside>"
   );
 }
 const subjectList = [
-  "数学",
-  "语文",
-  "英语",
-  "物理",
-  "化学",
-  "生物",
-  "历史",
-  "地理",
-  "道德与法治",
-  "科学",
-  "信息科技",
-  "其他学科",
+  "Python 程序设计",
+  "数据结构与算法",
+  "高等数学",
+  "线性代数",
+  "大学物理",
+  "大学英语",
+  "经济学原理",
+  "教育学原理",
 ];
-const grades = [
-  "一年级",
-  "二年级",
-  "三年级",
-  "四年级",
-  "五年级",
-  "六年级",
-  "七年级",
-  "八年级",
-  "九年级",
-  "高一",
-  "高二",
-  "高三",
-  "大学",
-];
+const grades = ["大一", "大二", "大三", "大四", "大五", "研究生", "跨年级"];
 function optionList(list, current) {
   return [...new Set([...list, current])]
     .map(
@@ -288,18 +278,22 @@ function renderSetup() {
   app.innerHTML =
     '<div class="studio-spread">' +
     setupHero() +
-    '<div class="work-sheet"><div class="sheet-intro"><div><span class="sheet-overline">教师工作台</span><h2>编排随堂三问</h2></div><button class="quiet" id="sample">' +
+    '<div class="work-sheet"><div class="sheet-intro"><div><span class="sheet-overline">高校教师工作台</span><h2>编排随堂三问</h2></div><button class="quiet" id="sample">' +
     icon("book", 16) +
     "载入示例</button></div>" +
-    '<section class="config"><form id="topicForm"><label>学科<select id="subject">' +
+    '<section class="config"><form id="topicForm"><label>大学课程<input id="subject" list="courses" required maxlength="60" value="' +
+    safe(draft.subject) +
+    '"><datalist id="courses">' +
     optionList(subjectList, draft.subject) +
-    '</select></label><label>年级<select id="grade">' +
+    '</datalist></label><label>授课年级<select id="grade">' +
     optionList(grades, draft.grade) +
     '</select></label><label class="topic-label">知识点<input id="topic" maxlength="100" required value="' +
     safe(draft.topic) +
     '" placeholder="刚讲完的知识点"></label><button class="gen-btn" type="submit" id="generate">' +
     icon("spark", 16) +
-    "生成三问</button></form></section>" +
+    '生成三问</button><details class="course-source"><summary>本节课讲义 · 备题与学生答疑依据</summary><textarea aria-label="本节课讲义" id="material" maxlength="6000" placeholder="粘贴课程资料，最多 6000 字">' +
+    safe(draft.material || "") +
+    '</textarea><div class="source-actions"><label>导入文本 <input id="materialFile" type="file" accept=".txt,.md,text/plain,text/markdown"></label><button id="useMaterial" type="button" class="quiet">沿用三问并保存讲义</button></div></details></form></section>' +
     '<section class="questions-region"><div class="review-heading"><h3>题目审核</h3><span>' +
     safe(draft.source) +
     '</span></div><div class="proofs">' +
@@ -310,35 +304,65 @@ function renderSetup() {
     '><span class="switch"></span><span>向学生展示解析</span></label><div><span id="publishNote" class="publish-note" role="status"></span>' +
     btn("publish", "primary", "play", "确认并开始课堂") +
     "</div></section></div></div>";
-  $("#coverModel").onclick = () => {
-    const el = $("#coverArt"),
-      active = !!el.querySelector(".model-stage");
-    resetScene();
-    el.innerHTML = active
-      ? '<img class="cover-photo" src="/assets/lesson-cover.webp" alt="木尺、色块与球组成的平衡教具">'
-      : stage();
-    $("#coverModel").innerHTML =
-      icon(active ? "rotate" : "book", 16) + (active ? "旋转教具" : "返回封面");
-    if (!active) model(null);
+  $("#materialFile").onchange = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    if (file.size > 36000 || !/\.(txt|md)$/i.test(file.name)) {
+      notify("请使用 6000 字以内的 TXT 或 Markdown 讲义");
+      return;
+    }
+    try {
+      const text = await file.text();
+      if (text.length > 6000) {
+        notify("讲义超过 6000 字，请选取本节课的内容");
+        return;
+      }
+      $("#material").value = text;
+      $("#material").dispatchEvent(new Event("input", { bubbles: true }));
+      notify("已导入讲义，可编辑后使用");
+    } catch {
+      notify("文件无法读取，请粘贴讲义原文");
+    }
   };
   $("#topicForm").oninput = () => {
     setupDirty =
       $("#topic").value.trim() !== draft.topic ||
       $("#subject").value !== draft.subject ||
-      $("#grade").value !== draft.grade;
+      $("#grade").value !== draft.grade ||
+      $("#material").value.trim() !== (draft.material || "").trim();
     $("#publish").disabled = setupDirty;
     $("#publishNote").textContent = setupDirty
-      ? "主题已修改，请重新生成三问"
+      ? "课程或讲义已修改，请重新生成三问"
       : "";
+  };
+  const courseInput = () => ({
+    subject: $("#subject").value.trim(),
+    grade: $("#grade").value,
+    topic: $("#topic").value.trim(),
+    material: $("#material").value.trim(),
+  });
+  $("#useMaterial").onclick = () => {
+    if (busy || !$("#topicForm").reportValidity()) return;
+    const input = courseInput();
+    if (!input.subject || !input.topic) {
+      notify("请填写课程和知识点");
+      return;
+    }
+    confirmAction(
+      "沿用当前三问和变式？",
+      "将讲义和课程信息存入草稿。请逐题核对现有内容是否适合本节课，再发布给学生。",
+      "保存为教师草稿",
+      () => {
+        applyDraft({ ...draft, ...input, source: "教师审核草稿" });
+        save("edited", true);
+        notify("课程讲义已保存");
+      },
+    );
   };
   $("#topicForm").onsubmit = async (e) => {
     e.preventDefault();
     if (busy) return;
-    const input = {
-      subject: $("#subject").value,
-      grade: $("#grade").value,
-      topic: $("#topic").value.trim(),
-    };
+    const input = courseInput();
     if (!input.topic) {
       $("#topic").focus();
       return;
@@ -353,10 +377,24 @@ function renderSetup() {
         body: input,
         timeout: 45000,
       });
+      if (
+        d.source.includes("预置") &&
+        ["subject", "grade", "topic", "material"].some(
+          (k) => (input[k] || "") !== (d[k] || ""),
+        )
+      ) {
+        confirmAction(
+          "当前可使用 Python 示例",
+          "模型暂不可用。载入示例会替换当前课程、讲义和题目。取消可保留当前输入，通过“沿用三问并保存讲义”继续手动编辑。",
+          "载入示例",
+          () => applyDraft(d),
+        );
+        return;
+      }
       applyDraft(d);
       notify(
         d.source.includes("预置")
-          ? "已载入数学示例，请核对课堂主题"
+          ? "当前使用大一 Python 预置讲义和题目，请核对后发布"
           : "题目已生成，可以逐题审核",
       );
     } catch (e) {
@@ -375,7 +413,7 @@ function renderSetup() {
     const load = async () => {
       try {
         applyDraft(await api("/api/sample"));
-        notify("已载入七年级数学示例");
+        notify("已载入大一 Python 示例");
       } catch (e) {
         notify(e.message);
       }
@@ -383,7 +421,7 @@ function renderSetup() {
     if (read("edited", false)) {
       confirmAction(
         "载入示例题目？",
-        "当前草稿中的题目将替换为七年级数学示例。",
+        "当前草稿中的题目将替换为大一 Python 示例。",
         "载入示例",
         load,
       );
@@ -851,7 +889,11 @@ function intervention(s, i, j) {
       ) +
       "</b><p>" +
       safe(q.explanation) +
-      '</p></div><h3 class="variant-title">审核要推送的变式题</h3><form id="variantForm">' +
+      "</p></div>" +
+      (isRecursion(s.topic)
+        ? '<details class="lab-fold"><summary>演示递归调用与返回</summary><edu-stack></edu-stack></details>'
+        : "") +
+      '<h3 class="variant-title">审核要推送的变式题</h3><form id="variantForm">' +
       formFields(v) +
       '<div class="modal-actions"><button type="button" class="outline" id="cancelVar">返回大屏</button><button class="primary" type="submit">' +
       icon("retest") +
@@ -889,7 +931,15 @@ document.addEventListener("fullscreenchange", () => {
 });
 async function start() {
   try {
-    if (!draft?.questions?.length) draft = await api("/api/sample");
+    const oldSample =
+      draft?.topic === "一元一次方程的移项" &&
+      draft.grade === "七年级" &&
+      draft.source?.includes("预置") &&
+      !read("edited", false);
+    if (!draft?.questions?.length || oldSample) {
+      draft = await api("/api/sample");
+      save("draft", draft);
+    }
     navigate(initialView);
   } catch (e) {
     app.innerHTML =

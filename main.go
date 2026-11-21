@@ -72,6 +72,7 @@ type studentState struct {
 	Subject   string           `json:"subject"`
 	Grade     string           `json:"grade"`
 	Topic     string           `json:"topic"`
+	Material  string           `json:"material"`
 	Phase     string           `json:"phase"`
 	Questions []questionView   `json:"questions"`
 	Variant   *questionView    `json:"variant"`
@@ -86,6 +87,7 @@ func state(r *room, id string) (studentState, error) {
 	if err != nil {
 		return out, err
 	}
+	out.Material = r.Draft.Material
 	out.Subject, out.Grade, out.Topic, out.Phase = r.Draft.Subject, r.Draft.Grade, r.Draft.Topic, r.Phase
 	for _, q := range r.Draft.Questions {
 		out.Questions = append(out.Questions, view(q))
@@ -122,6 +124,7 @@ type roomStats struct {
 	Subject              string          `json:"subject"`
 	Grade                string          `json:"grade"`
 	Topic                string          `json:"topic"`
+	Material             string          `json:"material"`
 	Phase                string          `json:"phase"`
 	Joined               int             `json:"joined"`
 	Submitted            int             `json:"submitted"`
@@ -138,7 +141,7 @@ type roomStats struct {
 }
 
 func stats(r *room, link string) roomStats {
-	o := roomStats{Code: r.Code, Subject: r.Draft.Subject, Grade: r.Draft.Grade, Topic: r.Draft.Topic,
+	o := roomStats{Code: r.Code, Subject: r.Draft.Subject, Grade: r.Draft.Grade, Topic: r.Draft.Topic, Material: r.Draft.Material,
 		Phase: r.Phase, Joined: len(r.Students), Variants: r.Draft.Variants, Variant: r.Variant, VariantIndex: r.VariantIndex, JoinURL: link, VariantCounts: make([]int, 4)}
 	for _, q := range r.Draft.Questions {
 		o.Questions = append(o.Questions, questionStats{Question: q, Counts: make([]int, len(q.Options))})
@@ -253,11 +256,11 @@ func (s *server) runAPI(w http.ResponseWriter, r *http.Request) (any, error) {
 			return nil, problem(429, "正在处理其他出题请求，请稍后再试。")
 		}
 		if os.Getenv("AI_API_KEY") != "" && os.Getenv("AI_MODEL") != "" && !s.budget.take(time.Now()) {
-			return nil, problem(429, "今日 AI 出题额度已用完，请载入课堂示例。")
+			return nil, problem(429, "今日 AI 调用额度已用完，请载入课堂示例。")
 		}
 		d, err := generateDraft(r.Context(), in)
 		if err != nil {
-			return nil, problem(502, "暂时无法生成题目，可载入移项示例后继续上课。")
+			return nil, problem(502, "暂时无法生成题目，可载入大学课堂示例后继续上课。")
 		}
 		if err = validateDraft(d); err != nil {
 			return nil, problem(502, "生成的题目尚不完整，请重新生成或载入示例。")
@@ -295,7 +298,7 @@ func (s *server) runAPI(w http.ResponseWriter, r *http.Request) (any, error) {
 		if err = current.allowTeacher(token); err != nil {
 			return nil, err
 		}
-	case "state", "answers", "retry":
+	case "state", "answers", "retry", "ask":
 		if _, err = current.student(token); err != nil {
 			return nil, err
 		}
@@ -311,6 +314,17 @@ func (s *server) runAPI(w http.ResponseWriter, r *http.Request) (any, error) {
 		return nil, err
 	}
 	switch action {
+	case "ask":
+		var body struct {
+			Question string `json:"question"`
+		}
+		if err = readJSON(w, r, &body); err != nil {
+			return nil, err
+		}
+		if !validText(body.Question, 300) {
+			return nil, problem(400, "请输入 1 至 300 字的课程问题。")
+		}
+		return s.askCourse(r.Context(), current, strings.TrimSpace(body.Question)), nil
 	case "state":
 		return state(current, token)
 	case "stats":
