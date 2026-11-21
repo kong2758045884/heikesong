@@ -1,32 +1,50 @@
-# React + TypeScript + Vite
+# EduMind 学生移动端
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+基于 `heikesong/dev-wgh` 学生端优化的可运行版本：先选课堂、再进入该课堂的学习闭环，包含签到、实时课堂、3D 知识图谱、错题诊断、虚拟实验室与学习报告。
 
-Currently, two official plugins are available:
+## 运行
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev      # http://localhost:5173
+npm run build    # tsc -b + vite build
+npm run lint     # oxlint src
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+> 摄像头（MediaPipe 手势签到）需要 `localhost` 或 HTTPS；首次进入签到页会加载本地视觉模型。
+
+## 本次优化的重点
+
+- **课堂列表 → 课堂工作台**：首页只展示「我的课堂」，选择课堂后进入该课堂工作台；签到、课堂、图谱、错题四个入口 + AI 学习路线推荐，薄弱知识点不再单列（统一收进图谱）。
+- **教师指定签到手势**：每个课堂由教师端下发手势（剪刀手 / 竖起大拇指 / OK / 比心），学生签到页只读展示「教师指定手势」，移除学生端手势选择，切换课堂后自动匹配对应规则。
+- **默认学生身份**：打开即进入学生端，教师 / 管理端收进「设置与演示身份」，不再默认落到教师工作台。
+- **一屏应用壳**：学生端改为 `100dvh` 固定外壳，内容区独立滚动，底部 5 个 Tab 始终可见，并适配 `safe-area-inset-bottom`。
+- **可分享路由**：`#/student/dashboard`、`#/student/checkin` 等 hash 深链，支持浏览器前进 / 后退；角色切换也写入 URL。
+- **学习状态持久化**：签到记录（含课堂 id）、错题攻克、任务完成、掌握度变化写入 `localStorage`（`edumind_student_v2_*`），刷新不丢失；设置里可一键重置演示数据。
+- **真实闭环**：完成签到自动勾选学习路径第 1 步；变式题答对后自动勾选第 3 步，同时抬高对应知识点掌握度，首页、图谱、报告同步变化。
+- **新增学习报告**：本周 / 本月趋势、掌握度雷达、薄弱点排序、AI 学情建议、错题与实验室入口。
+- **3D 图谱移动端优化**：标签贪心避让 + 边界收拢、重点 / 全部标签切换、双指缩放、拖拽与点击区分、标签更新降频、GPU 资源释放。
+- **首页任务卡**：修复完成状态删除线溢出，长标题两行截断，操作按钮不再被文字挤压。
+- **性能**：页面按路由懒加载，首包从约 1.53 MB 降到约 275 kB；three.js / recharts 只在对应页面加载。
+- **字体与可访问性**：移除 Google Fonts 外链，改用系统中文字体；补充 `aria-label`、`aria-pressed`、`viewport-fit=cover`。
+
+## 演示数据与边界
+
+- 数据来自 `src/data/mockData.ts`，当前版本不请求后端；AI 问答默认走内置课程上下文规则引擎。
+- 设置中可填写 OpenAI / DeepSeek 兼容 API 做真实大模型增强；Key 只保存在本机 `localStorage`，仅适合本地演示。
+- 签到的手势识别与六维校验为学生端演示实现，识别结果不能作为生产考勤依据。
+- 视觉模型与 wasm 位于 `public/mediapipe/`，首次加载体积较大，部署时建议开启静态资源缓存。
+
+## 目录
+
+```
+src/
+  App.tsx                  # 路由、持久化状态与页面编排
+  components/Layout.tsx    # 学生移动壳 / 教师桌面壳、设置弹层
+  hooks/                   # hash 路由、localStorage 状态、设备能力
+  pages/                   # 首页 / 签到 / 课堂 / 图谱 / 错题 / 报告 / 实验室
+  services/                # AI 对话、手势识别
+  data/mockData.ts         # 演示课程、知识图谱、签到、错题
+```
+
+原始仓库：<https://github.com/kong2758045884/heikesong/tree/dev-wgh>。本分支 `stu` 基于拉取时的 `dev-wgh`（`acff385`）做前端优化，未合并后续引入 Go 后端 / 登录的 `f96b29e`，以保持纯前端演示可直接运行。

@@ -6,6 +6,7 @@ import type {
   MistakeItem,
   QuizQuestion,
   SlideItem,
+  StudentClass,
   SubtitleEntry,
   TeachingSuggestion,
 } from '../types';
@@ -213,6 +214,65 @@ export const INITIAL_KNOWLEDGE_NODES: KnowledgeNode[] = [
     description: '待解锁章节：邻接表建模、深度优先搜索（DFS）、广度优先搜索（BFS）与最短路径。',
     evidence: { quizScore: 0, homeworkScore: 0, prereqScore: 48 },
     mistakeCount: 0,
+  },
+];
+
+
+export const STUDENT_CLASSES: StudentClass[] = [
+  {
+    id: 'cls-py-01',
+    name: 'Python 数据结构',
+    code: 'CS-PY-2026-01',
+    teacher: '周敏',
+    teacherTitle: '副教授',
+    term: '2026 秋季学期',
+    schedule: '周二 3-4 节',
+    room: '信息楼 302',
+    studentCount: 46,
+    progress: 72,
+    status: 'ongoing',
+    live: true,
+    theme: 'sky',
+    nextSession: '今天 15:00 · 递归与调用栈',
+    attendance: 96,
+    unread: 2,
+    checkInGesture: 'v',
+  },
+  {
+    id: 'cls-py-02',
+    name: 'Python 数据结构（2 班）',
+    code: 'CS-PY-2026-02',
+    teacher: '周敏',
+    teacherTitle: '副教授',
+    term: '2026 秋季学期',
+    schedule: '周四 1-2 节',
+    room: '信息楼 305',
+    studentCount: 44,
+    progress: 64,
+    status: 'ongoing',
+    theme: 'violet',
+    nextSession: '明天 09:00 · 函数与作用域',
+    attendance: 92,
+    unread: 0,
+    checkInGesture: 'thumb',
+  },
+  {
+    id: 'cls-algo-01',
+    name: '算法基础与竞赛',
+    code: 'CS-AL-2026-01',
+    teacher: '王浩',
+    teacherTitle: '讲师',
+    term: '2026 秋季学期',
+    schedule: '周五 5-6 节',
+    room: '实验楼 401',
+    studentCount: 38,
+    progress: 58,
+    status: 'upcoming',
+    theme: 'emerald',
+    nextSession: '周五 13:30 · 图搜索 BFS/DFS',
+    attendance: 89,
+    unread: 1,
+    checkInGesture: 'ok',
   },
 ];
 
@@ -568,4 +628,14 @@ export const ERROR_DIMENSION_DATA = [
   { name: '栈帧理解偏差', count: 14, color: '#f59e0b' },
   { name: '概念混淆', count: 11, color: '#6366f1' },
   { name: '边界条件错误', count: 9, color: '#06b6d4' },
+];
+
+export const STUDENT_WEEKLY_TREND = [
+  { day: '周一', score: 66, minutes: 35 },
+  { day: '周二', score: 71, minutes: 48 },
+  { day: '周三', score: 69, minutes: 30 },
+  { day: '周四', score: 75, minutes: 62 },
+  { day: '周五', score: 80, minutes: 74 },
+  { day: '周六', score: 78, minutes: 55 },
+  { day: '周日', score: 84, minutes: 68 },
 ];

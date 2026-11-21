@@ -18,6 +18,8 @@ import {
   Users,
   X,
   ZapOff,
+  BarChart3,
+  RotateCcw,
 } from 'lucide-react';
 import type { AIConfig, NavPage, UserRole } from '../types';
 import { loadAIConfig, saveAIConfig } from '../services/aiService';
@@ -31,6 +33,7 @@ interface LayoutProps {
   onToggleReduceMotion: () => void;
   pendingReviewCount: number;
   unresolvedMistakesCount: number;
+  onResetDemoData: () => void;
   children: React.ReactNode;
 }
 
@@ -77,6 +80,7 @@ export const Layout: React.FC<LayoutProps> = ({
   onToggleReduceMotion,
   pendingReviewCount,
   unresolvedMistakesCount,
+  onResetDemoData,
   children,
 }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -98,7 +102,7 @@ export const Layout: React.FC<LayoutProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-sky-600" />
-            <h3 className="font-semibold text-base text-slate-900">AI 服务引擎配置</h3>
+            <h3 className="font-semibold text-base text-slate-900">设置与演示身份</h3>
           </div>
           <button
             onClick={() => setSettingsOpen(false)}
@@ -111,6 +115,63 @@ export const Layout: React.FC<LayoutProps> = ({
         <div className="rounded-xl bg-sky-50 border border-sky-200 p-3 text-xs text-slate-700 leading-relaxed">
           默认使用内置课程上下文 AI 引擎，无需配置 Key 即可完整体验。如需连接外部大模型 API，可在下方开启。
         </div>
+
+        <div className="space-y-1.5">
+          <div className="text-xs font-semibold text-slate-700">演示身份</div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {(['student', 'teacher', 'admin'] as UserRole[]).map((r) => (
+              <button
+                key={r}
+                onClick={() => {
+                  if (r !== role) onRoleChange(r);
+                  setSettingsOpen(false);
+                }}
+                className={`py-2 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                  role === r
+                    ? 'bg-sky-600 text-white border-sky-600'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-sky-300'
+                }`}
+              >
+                {ROLE_LABELS[r]}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            学生端默认以「林致远」身份进入；教师 / 管理端用于联调演示，可随时切回。
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <div>
+            <div className="text-xs font-semibold text-slate-700">减少动画</div>
+            <div className="text-[11px] text-slate-500">关闭自动旋转与过渡，适合低性能设备</div>
+          </div>
+          <button
+            onClick={onToggleReduceMotion}
+            aria-pressed={reduceMotion}
+            className={`relative w-10 h-[22px] rounded-full transition-colors cursor-pointer shrink-0 ${
+              reduceMotion ? 'bg-sky-600' : 'bg-slate-300'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 w-[18px] h-[18px] rounded-full bg-white shadow transition-transform ${
+                reduceMotion ? 'translate-x-5' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
+        </div>
+
+        <button
+          onClick={() => {
+            if (window.confirm('确定要恢复演示数据吗？本地学习记录、签到和错题进度会被重置。')) {
+              onResetDemoData();
+              setSettingsOpen(false);
+            }
+          }}
+          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 text-xs font-semibold hover:bg-rose-100 cursor-pointer"
+        >
+          <RotateCcw className="w-3.5 h-3.5" /> 重置演示数据
+        </button>
 
         <label className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
           <div>
@@ -182,11 +243,13 @@ export const Layout: React.FC<LayoutProps> = ({
   // =========================================================================
   if (role === 'student') {
     const activeTabId: NavPage =
-      currentPage === 'virtual-lab' || currentPage === 'group-collab' ? 'dashboard' : currentPage;
+      currentPage === 'virtual-lab' || currentPage === 'group-collab' || currentPage === 'report'
+        ? 'dashboard'
+        : currentPage;
 
     return (
       <div
-        className={`min-h-screen bg-[#e8f2fc] flex flex-col items-center justify-start sm:py-4 sm:px-4 ${
+        className={`h-[100dvh] bg-[#e8f2fc] flex flex-col items-center justify-start sm:min-h-screen sm:py-4 sm:px-4 ${
           reduceMotion ? 'reduce-motion' : ''
         }`}
       >
@@ -221,22 +284,24 @@ export const Layout: React.FC<LayoutProps> = ({
               </div>
               <div className="leading-tight">
                 <div className="text-sm font-bold text-slate-900 tracking-tight">EduMind</div>
-                <div className="text-[11px] text-slate-500">Python 数据结构 · 林致远</div>
+                <div className="text-[11px] text-slate-500">学生端 · 林致远</div>
               </div>
             </div>
 
             <div className="flex items-center gap-1.5">
-              {/* Mobile-only quick switch back to Teacher */}
               <button
-                onClick={() => onRoleChange('teacher')}
-                className="sm:hidden px-2.5 py-1 rounded-lg bg-sky-50 text-sky-700 border border-sky-200 text-[11px] font-semibold cursor-pointer"
+                onClick={() => onNavigate('report')}
+                className="p-2 rounded-lg text-slate-500 hover:text-sky-700 hover:bg-sky-50 cursor-pointer"
+                title="学习报告"
+                aria-label="打开学习报告"
               >
-                切教师端
+                <BarChart3 className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setSettingsOpen(true)}
                 className="p-2 rounded-lg text-slate-500 hover:text-sky-700 hover:bg-sky-50 cursor-pointer"
-                title="AI 引擎设置"
+                title="设置与演示身份"
+                aria-label="打开设置"
               >
                 <Settings className="w-4 h-4" />
               </button>
@@ -244,10 +309,10 @@ export const Layout: React.FC<LayoutProps> = ({
           </header>
 
           {/* Scrollable Mobile Content */}
-          <main className="flex-1 overflow-y-auto px-4 pt-4 pb-24">{children}</main>
+          <main className="flex-1 overflow-y-auto overscroll-contain px-4 pt-4 pb-4">{children}</main>
 
           {/* Clean 5-Button Fixed Bottom Tab Bar */}
-          <nav className="sticky sm:absolute bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-sky-100 px-2 pt-1.5 pb-2.5 sm:pb-3">
+          <nav className="shrink-0 z-30 bg-white/95 backdrop-blur-md border-t border-sky-100 px-2 pt-1.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
             <div className="grid grid-cols-5 gap-1">
               {STUDENT_BOTTOM_TABS.map((tab) => {
                 const Icon = tab.icon;

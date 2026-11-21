@@ -8,6 +8,7 @@ import {
   Cpu,
   Hand,
   Image as ImageIcon,
+  Lock,
   RefreshCw,
   RotateCcw,
   ShieldCheck,
@@ -33,22 +34,40 @@ interface SmartCheckInPageProps {
   checkIns: CheckInRecord[];
   onApproveCheckIn: (id: string) => void;
   onAddCheckIn: (record: CheckInRecord) => void;
+  /** 教师端下发的签到手势，学生端只能使用该手势，不可自行更改 */
+  designatedGesture: DetectedGestureId;
+  /** 下发该规则的教师/课堂标识，例如 "周敏 · Python 数据结构" */
+  designatedBy: string;
 }
 
-const GESTURES: { id: DetectedGestureId; label: string; desc: string }[] = [
+interface GestureOption {
+  id: DetectedGestureId;
+  label: string;
+  desc: string;
+}
+
+const GESTURES: GestureOption[] = [
   { id: 'v', label: '✌️ 剪刀手', desc: '食指与中指呈 V 字伸直' },
   { id: 'thumb', label: '👍 竖起大拇指', desc: '单手大拇指竖直向上，其余四指握拳' },
   { id: 'ok', label: '👌 OK 手势', desc: '拇指食指捏圆，其余三指伸直' },
   { id: 'heart', label: '🫶 比心手势', desc: '拇指食指捏心/双手比心，其余手指收拢' },
 ];
 
+/** 把教师端下发的 gestureId 解析为可选中的手势模板（未知手势回退到第一个） */
+const resolveGesture = (id: DetectedGestureId): GestureOption =>
+  GESTURES.find((g) => g.id === id) ?? GESTURES[0];
+
 export const SmartCheckInPage: React.FC<SmartCheckInPageProps> = ({
   role,
   checkIns,
   onApproveCheckIn,
   onAddCheckIn,
+  designatedGesture,
+  designatedBy,
 }) => {
-  const [selectedGesture, setSelectedGesture] = useState(GESTURES[0]);
+  const [selectedGesture, setSelectedGesture] = useState<GestureOption>(() =>
+    resolveGesture(designatedGesture)
+  );
   const [requireTeacher, setRequireTeacher] = useState(true);
   const [requireBlackboard, setRequireBlackboard] = useState(true);
   const [livenessChallenge, setLivenessChallenge] = useState(true);
@@ -247,34 +266,37 @@ export const SmartCheckInPage: React.FC<SmartCheckInPageProps> = ({
 
     // Simulated classroom scene snapshot
     canvas.width = 960;
-    canvas.height = 540;
+    canvas.height = 720;
     if (ctx) {
-      const grad = ctx.createLinearGradient(0, 0, 960, 540);
+      const grad = ctx.createLinearGradient(0, 0, 960, 720);
       grad.addColorStop(0, '#0f2942');
       grad.addColorStop(1, '#1e3a5f');
       ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 960, 540);
+      ctx.fillRect(0, 0, 960, 720);
+      // Blackboard: two teacher lines, kept inside the 4:3 frame.
       ctx.fillStyle = '#0f3d32';
-      ctx.fillRect(50, 55, 560, 180);
+      ctx.fillRect(50, 50, 560, 210);
       ctx.strokeStyle = '#b45309';
       ctx.lineWidth = 6;
-      ctx.strokeRect(50, 55, 560, 180);
+      ctx.strokeRect(50, 50, 560, 210);
       ctx.fillStyle = '#a7f3d0';
-      ctx.font = '600 18px monospace';
-      ctx.fillText('曲阜师范大学 · Python 程序设计与数据结构', 75, 105);
+      ctx.font = '600 17px monospace';
+      ctx.fillText('曲阜师范大学 · Python 程序设计与数据结构', 75, 95);
       ctx.fillStyle = '#ffffff';
-      ctx.font = '500 20px monospace';
-      ctx.fillText('def factorial(n): return 1 if n<=1 else n*factorial(n-1)', 75, 155);
+      ctx.font = '500 18px monospace';
+      ctx.fillText('def factorial(n):', 75, 145);
+      ctx.fillText('    return 1 if n <= 1 else n * factorial(n-1)', 75, 180);
+      // Teacher / student markers sit low so the 4:3 crop never cuts the text.
       ctx.fillStyle = 'rgba(14, 165, 233, 0.25)';
-      ctx.fillRect(50, 390, 290, 54);
+      ctx.fillRect(50, 520, 350, 64);
       ctx.fillStyle = '#e0f2fe';
-      ctx.font = '600 18px sans-serif';
-      ctx.fillText('👨‍🏫 讲台教师：张教授（演示画面）', 66, 424);
+      ctx.font = '600 17px sans-serif';
+      ctx.fillText('👨‍🏫 讲台教师：张教授（演示画面）', 66, 558);
       ctx.fillStyle = 'rgba(16, 185, 129, 0.28)';
-      ctx.fillRect(590, 380, 320, 64);
+      ctx.fillRect(560, 510, 350, 74);
       ctx.fillStyle = '#ecfdf5';
-      ctx.font = '700 20px sans-serif';
-      ctx.fillText(`🧑‍🎓 模拟学生 + ${selectedGesture.label}`, 612, 418);
+      ctx.font = '700 17px sans-serif';
+      ctx.fillText(`🧑‍🎓 模拟学生 + ${selectedGesture.label}`, 580, 554);
     }
     return { url: canvas.toDataURL('image/jpeg', 0.9), source: 'sim' };
   };
@@ -683,6 +705,10 @@ export const SmartCheckInPage: React.FC<SmartCheckInPageProps> = ({
 
   // STUDENT VIEW — CLEAN SINGLE-COLUMN MOBILE CHECK-IN
   const liveMatched = liveGesture?.gestureId === selectedGesture.id;
+  // 锁定卡只展示教师下发的规则（不随学生本地状态变化）
+  const designatedGestureInfo = resolveGesture(designatedGesture);
+  const designatedEmoji = designatedGestureInfo.label.split(' ')[0];
+  const designatedName = designatedGestureInfo.label.split(' ').slice(1).join(' ');
 
   return (
     <div className="space-y-4">
@@ -704,25 +730,31 @@ export const SmartCheckInPage: React.FC<SmartCheckInPageProps> = ({
         </span>
       </div>
 
-      {/* Gesture Selector (4 crisp thumb-friendly pills) */}
-      <div className="grid grid-cols-2 gap-2">
-        {GESTURES.map((g) => (
-          <button
-            key={g.id}
-            onClick={() => {
-              setSelectedGesture(g);
-              setVerifyResult('idle');
-              setFailMessage('');
-            }}
-            className={`py-2 px-3 rounded-xl text-xs font-semibold border cursor-pointer transition-colors text-left ${
-              selectedGesture.id === g.id
-                ? 'bg-sky-600 border-sky-600 text-white'
-                : 'bg-white border-sky-200 text-slate-700 hover:border-sky-400'
-            }`}
-          >
-            {g.label}
-          </button>
-        ))}
+      {/* Teacher-designated gesture (read-only lock card, students cannot change it) */}
+      <div className="rounded-2xl bg-sky-50 border border-sky-200 p-3.5 space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] font-semibold text-sky-700 flex items-center gap-1.5">
+            <Lock className="w-3.5 h-3.5" />
+            教师指定手势
+          </span>
+          <span className="px-2 py-0.5 rounded-full bg-white/80 border border-sky-200 text-[10px] font-medium text-sky-600">
+            学生端不可更改
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="w-14 h-14 rounded-xl bg-white border border-sky-200 flex items-center justify-center text-3xl shrink-0">
+            {designatedEmoji}
+          </div>
+          <div className="min-w-0">
+            <div className="text-lg font-bold text-sky-900 leading-tight">{designatedName || designatedGestureInfo.label}</div>
+            <div className="text-[11px] text-sky-700/80 mt-0.5">由 {designatedBy} 指定</div>
+          </div>
+        </div>
+
+        <p className="text-[10px] text-slate-500 leading-relaxed">
+          手势由教师端统一设置，学生端不可更改
+        </p>
       </div>
 
       {/* Camera Card */}

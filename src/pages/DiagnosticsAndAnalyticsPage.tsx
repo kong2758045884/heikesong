@@ -8,6 +8,8 @@ import {
   Layers,
   Maximize2,
   MessageCircleHeart,
+  Network,
+  FlaskConical,
   Sparkles,
   X,
 } from 'lucide-react';
@@ -18,12 +20,14 @@ interface DiagnosticsAndAnalyticsPageProps {
   role: UserRole;
   mistakes: MistakeItem[];
   onResolveMistake: (mistakeId: string, nodeId: string) => void;
+  onNavigate: (page: import('../types').NavPage) => void;
 }
 
 export const DiagnosticsAndAnalyticsPage: React.FC<DiagnosticsAndAnalyticsPageProps> = ({
   role,
   mistakes,
   onResolveMistake,
+  onNavigate,
 }) => {
   const [selectedId, setSelectedId] = useState(mistakes[0]?.id || 'm1');
   const selected = mistakes.find((m) => m.id === selectedId) || mistakes[0];
@@ -121,6 +125,23 @@ export const DiagnosticsAndAnalyticsPage: React.FC<DiagnosticsAndAnalyticsPagePr
             </p>
           )}
         </div>
+
+        {role === 'student' && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => onNavigate('knowledge-graph')}
+              className="px-3 py-1.5 rounded-xl bg-white border border-sky-200 text-sky-700 text-xs font-semibold cursor-pointer flex items-center gap-1.5"
+            >
+              <Network className="w-3.5 h-3.5" /> 知识图谱
+            </button>
+            <button
+              onClick={() => onNavigate('virtual-lab')}
+              className="px-3 py-1.5 rounded-xl bg-sky-600 text-white text-xs font-semibold cursor-pointer flex items-center gap-1.5"
+            >
+              <FlaskConical className="w-3.5 h-3.5" /> 3D 实验室
+            </button>
+          </div>
+        )}
 
         {role === 'teacher' && (
           <div className="flex flex-wrap gap-2">

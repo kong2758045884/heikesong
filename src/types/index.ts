@@ -7,7 +7,8 @@ export type NavPage =
   | 'knowledge-graph'
   | 'virtual-lab'
   | 'diagnostics'
-  | 'group-collab';
+  | 'group-collab'
+  | 'report';
 
 export type MasteryStatus = 'mastered' | 'needs-review' | 'weak' | 'unlearned';
 
@@ -59,6 +60,8 @@ export interface SubtitleEntry {
 
 export interface CheckInRecord {
   id: string;
+  /** 课堂 id；演示数据缺省视为主班 */
+  classId?: string;
   studentId: string;
   studentName: string;
   time: string;
@@ -130,4 +133,27 @@ export interface AIConfig {
   apiKey: string;
   model: string;
   useRealApi: boolean;
+}
+
+/** A class section the student is enrolled in (front-end demo data). */
+export interface StudentClass {
+  id: string;
+  name: string;
+  code: string;
+  teacher: string;
+  teacherTitle: string;
+  term: string;
+  schedule: string;
+  room: string;
+  studentCount: number;
+  progress: number;
+  status: 'ongoing' | 'upcoming' | 'ended';
+  /** 是否正在直播（仅主班演示为 true） */
+  live?: boolean;
+  theme: 'sky' | 'violet' | 'emerald';
+  nextSession: string;
+  attendance: number;
+  unread: number;
+  /** Gesture the teacher has designated for this class's check-in. */
+  checkInGesture: 'v' | 'thumb' | 'ok' | 'heart';
 }

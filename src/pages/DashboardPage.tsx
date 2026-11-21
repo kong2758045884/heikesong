@@ -1,15 +1,20 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Activity,
   AlertTriangle,
   ArrowRight,
   BookOpen,
   BrainCircuit,
+  CalendarDays,
   Camera,
   CheckCircle2,
+  ChevronLeft,
+  Clock,
   Cpu,
-  FlaskConical,
   Lock,
+  MapPin,
+  MessageSquare,
+  Network,
   ShieldCheck,
   Sparkles,
   TrendingUp,
@@ -27,12 +32,13 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { CLASS_TREND_DATA, ERROR_DIMENSION_DATA, STATUS_META } from '../data/mockData';
+import { CLASS_TREND_DATA, ERROR_DIMENSION_DATA, STUDENT_CLASSES } from '../data/mockData';
 import type {
   CheckInRecord,
   KnowledgeNode,
   MistakeItem,
   NavPage,
+  StudentClass,
   TeachingSuggestion,
   UserRole,
 } from '../types';
@@ -43,9 +49,49 @@ interface DashboardPageProps {
   checkIns: CheckInRecord[];
   mistakes: MistakeItem[];
   suggestions: TeachingSuggestion[];
+  completedTasks: string[];
+  onToggleTask: (id: string) => void;
   onUpdateSuggestion: (id: string, status: TeachingSuggestion['status']) => void;
   onNavigate: (page: NavPage) => void;
+  activeClassId: string | null;
+  onSelectClass: (id: string) => void;
+  onExitClass: () => void;
 }
+
+/** 学生课堂主题色静态映射：只使用静态类名，避免 Tailwind 动态拼接失效。 */
+const CLASS_THEME_STYLES: Record<
+  StudentClass['theme'],
+  { iconBox: string; progress: string; hoverBorder: string }
+> = {
+  sky: {
+    iconBox: 'bg-sky-50 text-sky-600 border border-sky-100',
+    progress: 'bg-sky-500',
+    hoverBorder: 'hover:border-sky-300',
+  },
+  violet: {
+    iconBox: 'bg-violet-50 text-violet-600 border border-violet-100',
+    progress: 'bg-violet-500',
+    hoverBorder: 'hover:border-violet-300',
+  },
+  emerald: {
+    iconBox: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+    progress: 'bg-emerald-500',
+    hoverBorder: 'hover:border-emerald-300',
+  },
+};
+
+const CLASS_STATUS_META: Record<StudentClass['status'], { label: string; badge: string }> = {
+  ongoing: { label: '进行中', badge: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
+  upcoming: { label: '即将开始', badge: 'bg-sky-50 text-sky-700 border border-sky-200' },
+  ended: { label: '已结课', badge: 'bg-slate-100 text-slate-500 border border-slate-200' },
+};
+
+const CHECKIN_GESTURE_EMOJI: Record<StudentClass['checkInGesture'], string> = {
+  v: '✌️',
+  thumb: '👍',
+  ok: '👌',
+  heart: '🫶',
+};
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({
   role,
@@ -53,11 +99,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   checkIns,
   mistakes,
   suggestions,
+  completedTasks,
   onUpdateSuggestion,
   onNavigate,
+  activeClassId,
+  onSelectClass,
+  onExitClass,
 }) => {
-  const [completedTasks, setCompletedTasks] = useState<string[]>(['p1']);
-
   const verifiedCount = checkIns.filter((c) => c.status === 'verified' || c.status === 'late').length;
   const reviewNeededCount = checkIns.filter((c) => c.status === 'review-needed').length;
   const weakNodes = nodes.filter((n) => (role === 'teacher' ? n.classStatus : n.status) === 'weak');
@@ -423,208 +471,355 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   }
 
   // STUDENT DASHBOARD
-  const learningPath = [
-    {
-      id: 'p1',
-      step: '01',
-      title: '完成今日 AI 智能课堂签到（实拍 + 手势 + 黑板联验）',
-      tag: '课前准备',
-      page: 'checkin' as NavPage,
-    },
-    {
-      id: 'p2',
-      step: '02',
-      title: '在 3D 虚拟实验室运行 factorial(4) 调用栈压栈/回溯演示',
-      tag: '薄弱突破 · 递归',
-      page: 'virtual-lab' as NavPage,
-    },
-    {
-      id: 'p3',
-      step: '03',
-      title: '完成 2 道「递归出口遗漏」AI 错因诊断与变式验证题',
-      tag: '举一反三',
-      page: 'diagnostics' as NavPage,
-    },
-    {
-      id: 'p4',
-      step: '04',
-      title: '查看 3D 知识图谱并解锁下一章「图搜索 (DFS/BFS)」',
-      tag: '知识进阶',
-      page: 'knowledge-graph' as NavPage,
-    },
+  // 学生端已按「我的课堂」重构：未选课堂时只展示课堂列表；
+  // 选中课堂后展示该课堂信息卡 + 五个功能入口（含 AI 学习路线推荐）。
+  const studentPathSteps = [
+    { id: 'p1', title: '完成今日 AI 智能签到' },
+    { id: 'p2', title: '运行 factorial(4) 调用栈演示' },
+    { id: 'p3', title: '完成递归出口错因诊断题' },
+    { id: 'p4', title: '查看知识图谱并解锁图搜索' },
   ];
+  const completedPathCount = studentPathSteps.filter((step) => completedTasks.includes(step.id)).length;
+  const nextPathStep = studentPathSteps.find((step) => !completedTasks.includes(step.id));
+  const hasCheckedIn = checkIns.some(
+    (c) =>
+      (c.classId ?? STUDENT_CLASSES[0]?.id) === activeClassId &&
+      (c.status === 'verified' || c.status === 'late')
+  );
+  const classTerm = STUDENT_CLASSES[0]?.term ?? '';
+  const activeClass = activeClassId
+    ? STUDENT_CLASSES.find((item) => item.id === activeClassId) ?? null
+    : null;
 
-  const toggleTask = (id: string) => {
-    setCompletedTasks((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
-
-  return (
-    <div className="space-y-4">
-      {/* Clean Mobile Student Greeting Card */}
-      <div className="rounded-2xl bg-sky-600 text-white p-4 space-y-3 shadow-sm">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-white/15">
-            今日学习计划
-          </span>
-          <span className="text-xs text-sky-100 tabular-nums">掌握度 {avgMastery}%</span>
-        </div>
-        <div>
-          <h1 className="text-lg font-bold leading-snug">林致远，继续攻克「递归与调用栈」</h1>
-          <p className="text-xs text-sky-100 mt-1">
-            当前掌握度 {nodes.find((n) => n.id === 'recursion')?.studentMastery}% · 还有 {unresolvedMistakes.length} 道错题待巩固
+  // 未选择课堂（或 activeClassId 失效）时，只展示课堂列表
+  if (!activeClass) {
+    return (
+      <div className="space-y-4">
+        <div className="px-0.5">
+          <h1 className="flex items-center gap-2 text-xl font-bold text-slate-900">
+            <BookOpen className="h-5 w-5 text-sky-600" />
+            我的课堂
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">选择课堂，进入今天的学习</p>
+          <p className="mt-1.5 text-[11px] font-semibold text-sky-600 tabular-nums">
+            {classTerm} · 共 {STUDENT_CLASSES.length} 门课堂
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 pt-1">
-          <button
-            onClick={() => onNavigate('checkin')}
-            className="py-2 px-3 rounded-xl bg-white text-sky-700 text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5"
+
+        {activeClassId !== null && (
+          <div
+            role="status"
+            className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-700"
           >
-            <Camera className="w-3.5 h-3.5" /> 去课堂签到
-          </button>
-          <button
-            onClick={() => onNavigate('virtual-lab')}
-            className="py-2 px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold border border-white/25 cursor-pointer flex items-center justify-center gap-1.5"
-          >
-            <FlaskConical className="w-3.5 h-3.5" /> 3D 实验室
-          </button>
-        </div>
-      </div>
+            未找到对应课堂，已回退到全部课堂列表。
+          </div>
+        )}
 
-      {/* Compact 2x2 Metrics */}
-      <div className="grid grid-cols-2 gap-2.5">
-        <div className="glass-panel rounded-2xl p-3.5">
-          <div className="text-[11px] text-slate-500">已掌握知识点</div>
-          <div className="text-xl font-bold text-slate-900 tabular-nums mt-0.5">
-            {nodes.filter((n) => n.status === 'mastered').length}
-            <span className="text-xs font-normal text-slate-400"> / {nodes.length}</span>
-          </div>
-        </div>
-        <div className="glass-panel rounded-2xl p-3.5">
-          <div className="text-[11px] text-slate-500">本周有效学习</div>
-          <div className="text-xl font-bold text-sky-600 tabular-nums mt-0.5">6.8 h</div>
-        </div>
-      </div>
-
-      {/* Quick Tools Strip (Virtual Lab + Group Collab) */}
-      <div className="grid grid-cols-2 gap-2.5">
-        <button
-          onClick={() => onNavigate('virtual-lab')}
-          className="glass-panel rounded-2xl p-3.5 text-left hover:border-sky-300 transition-colors cursor-pointer flex items-center gap-3"
-        >
-          <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
-            <FlaskConical className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-xs font-bold text-slate-800">3D 实验室</div>
-            <div className="text-[11px] text-slate-500 truncate">调用栈·排序</div>
-          </div>
-        </button>
-        <button
-          onClick={() => onNavigate('group-collab')}
-          className="glass-panel rounded-2xl p-3.5 text-left hover:border-sky-300 transition-colors cursor-pointer flex items-center gap-3"
-        >
-          <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
-            <Users className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-xs font-bold text-slate-800">小组协作</div>
-            <div className="text-[11px] text-slate-500 truncate">脑图·分工</div>
-          </div>
-        </button>
-      </div>
-
-      {/* Personalized Learning Path */}
-      <div className="glass-panel rounded-2xl p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-900">AI 个性化学习路径</h2>
-          <span className="text-[11px] text-sky-600 font-semibold tabular-nums">
-            {completedTasks.length}/{learningPath.length}
-          </span>
-        </div>
-        <div className="space-y-2">
-          {learningPath.map((item) => {
-            const done = completedTasks.includes(item.id);
+        <div className="space-y-3">
+          {STUDENT_CLASSES.map((cls) => {
+            const theme = CLASS_THEME_STYLES[cls.theme];
+            const status = CLASS_STATUS_META[cls.status];
             return (
-              <div
-                key={item.id}
-                className={`flex items-center justify-between gap-2.5 p-3 rounded-xl border transition-colors ${
-                  done ? 'bg-emerald-50/70 border-emerald-200' : 'bg-sky-50/40 border-sky-100'
-                }`}
+              <button
+                key={cls.id}
+                type="button"
+                onClick={() => onSelectClass(cls.id)}
+                aria-label={`进入课堂：${cls.name}，${status.label}`}
+                className={`glass-panel w-full min-w-0 cursor-pointer rounded-2xl p-4 text-left transition-all hover:shadow-md active:scale-[0.99] ${theme.hoverBorder}`}
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <button
-                    onClick={() => toggleTask(item.id)}
-                    className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 cursor-pointer ${
-                      done
-                        ? 'bg-emerald-500 border-emerald-500 text-white'
-                        : 'border-sky-300 text-sky-600 bg-white'
-                    }`}
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${theme.iconBox}`}
                   >
-                    {done ? (
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                    ) : (
-                      <span className="text-[10px] font-bold">{item.step}</span>
-                    )}
-                  </button>
-                  <div className="min-w-0">
-                    <div
-                      className={`text-xs font-semibold leading-snug ${
-                        done ? 'line-through text-slate-400' : 'text-slate-800'
-                      }`}
-                    >
-                      {item.title}
+                    <BookOpen className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <h2 className="min-w-0 break-words text-sm font-bold leading-snug text-slate-900">
+                        {cls.name}
+                      </h2>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.badge}`}
+                      >
+                        {status.label}
+                      </span>
                     </div>
-                    <div className="text-[10px] text-sky-600 mt-0.5">{item.tag}</div>
+                    <div className="mt-0.5 flex items-center justify-between gap-2">
+                      <span className="min-w-0 truncate text-[11px] text-slate-500">
+                        {cls.teacher} · {cls.teacherTitle}
+                      </span>
+                      <span
+                        className={`inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold ${
+                          cls.unread > 0 ? 'text-rose-600' : 'text-slate-400'
+                        }`}
+                      >
+                        <MessageSquare className="h-3 w-3" />
+                        {cls.unread} 条未读
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <button
-                  onClick={() => onNavigate(item.page)}
-                  className="px-2.5 py-1 rounded-lg bg-white border border-sky-200 text-sky-700 text-[11px] font-semibold shrink-0 cursor-pointer"
-                >
-                  去完成
-                </button>
-              </div>
+
+                <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="h-3 w-3 shrink-0 text-slate-400" />
+                    {cls.schedule}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="h-3 w-3 shrink-0 text-slate-400" />
+                    {cls.room}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Users className="h-3 w-3 shrink-0 text-slate-400" />
+                    {cls.studentCount} 人
+                  </span>
+                </div>
+
+                <div className="mt-2.5 space-y-1">
+                  <div className="flex items-center justify-between text-[10px] text-slate-500">
+                    <span>学习进度</span>
+                    <span className="font-semibold tabular-nums text-slate-700">{cls.progress}%</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className={`h-full rounded-full ${theme.progress}`}
+                      style={{ width: `${cls.progress}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-2.5 rounded-xl border border-sky-100 bg-sky-50/70 px-2.5 py-2">
+                  <div className="text-[10px] font-semibold text-sky-600">下次课</div>
+                  <div className="mt-0.5 break-words text-[11px] font-medium text-slate-700">
+                    {cls.nextSession}
+                  </div>
+                </div>
+
+                <div className="mt-2.5 flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate text-[10px] text-slate-400">{cls.code}</span>
+                  <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-sky-600">
+                    进入课堂
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </span>
+                </div>
+              </button>
             );
           })}
         </div>
       </div>
+    );
+  }
 
-      {/* Weak Nodes Snapshot */}
-      <div className="glass-panel rounded-2xl p-4 space-y-2.5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-900">薄弱点优先巩固</h2>
-          <button
-            onClick={() => onNavigate('knowledge-graph')}
-            className="text-[11px] text-sky-600 font-semibold cursor-pointer"
-          >
-            查看图谱 →
-          </button>
+  const theme = CLASS_THEME_STYLES[activeClass.theme];
+  const status = CLASS_STATUS_META[activeClass.status];
+  const featureEntries = [
+    {
+      id: 'checkin',
+      title: '签到',
+      icon: Camera,
+      primary: hasCheckedIn ? '已完成签到' : '待签到',
+      subtitle: `教师指定手势：${CHECKIN_GESTURE_EMOJI[activeClass.checkInGesture]} ${activeClass.teacher}`,
+      ariaLabel: hasCheckedIn ? '查看本课堂签到记录' : '前往本课堂签到',
+      onClick: () => onNavigate('checkin'),
+    },
+    {
+      id: 'classroom',
+      title: '课堂',
+      icon: BookOpen,
+      primary: activeClass.live ? 'LIVE · 第 3 章' : activeClass.status === 'upcoming' ? '即将开始' : '待开课',
+      subtitle: activeClass.live ? '3 页课件 · 双语字幕' : '课件预习 · 共享笔记',
+      ariaLabel: '进入实时课堂',
+      onClick: () => onNavigate('classroom'),
+    },
+    {
+      id: 'knowledge-graph',
+      title: '图谱',
+      icon: Network,
+      primary: `${avgMastery}% 平均掌握度`,
+      subtitle: `${nodes.length} 个知识点`,
+      ariaLabel: '查看知识图谱',
+      onClick: () => onNavigate('knowledge-graph'),
+    },
+    {
+      id: 'diagnostics',
+      title: '错题',
+      icon: BrainCircuit,
+      primary: `${unresolvedMistakes.length} 道未解决`,
+      subtitle: 'AI 错因诊断',
+      ariaLabel: '查看错题与 AI 错因诊断',
+      onClick: () => onNavigate('diagnostics'),
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* 课堂切换头部：返回全部课堂 */}
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={onExitClass}
+          aria-label="返回全部课堂"
+          className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl border border-sky-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-sky-700 transition-all hover:bg-sky-50 active:scale-[0.98]"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+          全部课堂
+        </button>
+        <div className="min-w-0 text-right">
+          <h1 className="truncate text-sm font-bold text-slate-900">{activeClass.name}</h1>
+          <p className="truncate text-[10px] text-slate-500">
+            {activeClass.teacher} · {activeClass.term}
+          </p>
         </div>
-        <div className="space-y-2.5">
-          {nodes
-            .filter((n) => n.studentMastery > 0)
-            .sort((a, b) => a.studentMastery - b.studentMastery)
-            .slice(0, 4)
-            .map((node) => {
-              const meta = STATUS_META[node.status];
-              return (
-                <div key={node.id} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-700 font-medium">{node.label}</span>
-                    <span className={`${meta.color} font-semibold tabular-nums`}>
-                      {node.studentMastery}% · {meta.label}
-                    </span>
+      </div>
+
+      {/* 课堂信息卡 */}
+      <div className="glass-panel space-y-3 rounded-2xl p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${theme.iconBox}`}
+            >
+              <BookOpen className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <h2 className="truncate text-sm font-bold text-slate-900">{activeClass.name}</h2>
+                <span
+                  className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${status.badge}`}
+                >
+                  {status.label}
+                </span>
+              </div>
+              <p className="truncate text-[10px] text-slate-500">
+                {activeClass.code} · {activeClass.studentCount} 人
+              </p>
+            </div>
+          </div>
+          {activeClass.unread > 0 && (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-rose-100 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600">
+              <MessageSquare className="h-3 w-3" />
+              {activeClass.unread}
+            </span>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-sky-100 bg-sky-50/70 px-3 py-2.5">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-sky-600">
+            <CalendarDays className="h-3 w-3" />
+            下次课
+          </div>
+          <div className="mt-1 break-words text-xs font-semibold text-slate-800">
+            {activeClass.nextSession}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500">
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {activeClass.schedule}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              {activeClass.room}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
+            <div className="flex items-center gap-1 text-[10px] text-slate-500">
+              <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+              到课率
+            </div>
+            <div className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">
+              {activeClass.attendance}%
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
+            <div className="flex items-center gap-1 text-[10px] text-slate-500">
+              <TrendingUp className="h-3 w-3 text-sky-500" />
+              学习进度
+            </div>
+            <div className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">
+              {activeClass.progress}%
+            </div>
+            <div className="mt-1 h-1 overflow-hidden rounded-full bg-slate-200">
+              <div
+                className={`h-full rounded-full ${theme.progress}`}
+                style={{ width: `${activeClass.progress}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 五个功能入口：签到 / 课堂 / 图谱 / 错题 + AI 学习路线推荐 */}
+      <div className="space-y-2.5">
+        <h2 className="px-0.5 text-sm font-bold text-slate-900">课堂功能</h2>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          {featureEntries.map((entry) => {
+            const Icon = entry.icon;
+            return (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={entry.onClick}
+                aria-label={entry.ariaLabel}
+                className="glass-panel min-w-0 cursor-pointer rounded-2xl p-3.5 text-left transition-all hover:border-sky-300 hover:shadow-md active:scale-[0.98]"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
+                    <Icon className="h-4 w-4" />
                   </div>
-                  <div className="h-1.5 rounded-full bg-sky-100 overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${node.studentMastery}%`, backgroundColor: meta.hex }}
-                    />
-                  </div>
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0 text-sky-500" />
                 </div>
-              );
-            })}
+                <div className="mt-2 text-xs font-bold text-slate-800">{entry.title}</div>
+                <div className="mt-0.5 break-words text-[11px] font-semibold text-slate-900">
+                  {entry.primary}
+                </div>
+                <div className="mt-0.5 break-words text-[10px] leading-snug text-slate-500">
+                  {entry.subtitle}
+                </div>
+              </button>
+            );
+          })}
         </div>
+
+        <button
+          type="button"
+          onClick={() => onNavigate('report')}
+          aria-label="查看 AI 学习路线推荐"
+          className="w-full cursor-pointer rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 p-4 text-left text-white shadow-lg shadow-sky-500/20 transition-all hover:from-sky-400 hover:to-blue-500 active:scale-[0.99]"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/20">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[10px] font-semibold text-sky-100">个性化推荐</div>
+                <div className="mt-0.5 text-sm font-bold">AI 学习路线推荐</div>
+              </div>
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/25 bg-white/15 px-2 py-0.5 text-[10px] font-semibold tabular-nums">
+              已完成 {completedPathCount}/{studentPathSteps.length}
+            </span>
+          </div>
+          <p className="mt-2 break-words text-[11px] leading-snug text-sky-50">
+            根据学习记录动态生成 · 下一步：{nextPathStep ? nextPathStep.title : '全部任务已完成，去查看学习报告'}
+          </p>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/25">
+              <div
+                className="h-full rounded-full bg-white"
+                style={{ width: `${(completedPathCount / studentPathSteps.length) * 100}%` }}
+              />
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold">
+              查看完整路线
+              <ArrowRight className="h-3.5 w-3.5" />
+            </span>
+          </div>
+        </button>
       </div>
     </div>
   );

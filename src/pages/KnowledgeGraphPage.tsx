@@ -9,6 +9,7 @@ import {
   Network,
   RotateCcw,
   Sparkles,
+  Tags,
 } from 'lucide-react';
 import { STATUS_META } from '../data/mockData';
 import type { KnowledgeNode, NavPage, UserRole } from '../types';
@@ -17,6 +18,7 @@ interface KnowledgeGraphPageProps {
   role: UserRole;
   nodes: KnowledgeNode[];
   reduceMotion: boolean;
+  isCoarsePointer: boolean;
   onNavigate: (page: NavPage) => void;
 }
 
@@ -28,10 +30,121 @@ interface ProjectedLabel {
   scale: number;
 }
 
+interface PlacedLabel extends ProjectedLabel {
+  width: number;
+}
+
+/**
+ * Projected 3D labels are plain DOM pills. On a narrow screen a naive pass
+ * stacks them on top of each other, so we keep the most important ones and
+ * greedily skip any label whose pill would collide with an already placed pill.
+ */
+function declutterLabels(
+  labels: ProjectedLabel[],
+  nodes: KnowledgeNode[],
+  viewScope: 'student' | 'class',
+  selectedNodeId: string,
+  showAll: boolean,
+  width: number,
+  height: number,
+  coarsePointer: boolean
+): PlacedLabel[] {
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  const selectedNode = nodeMap.get(selectedNodeId);
+
+  const candidates = labels
+    .filter((label) => label.visible && nodeMap.has(label.id))
+    .filter((label) => {
+      if (!coarsePointer || showAll) return true;
+      const node = nodeMap.get(label.id)!;
+      const status = viewScope === 'class' ? node.classStatus : node.status;
+      return (
+        label.id === selectedNodeId ||
+        status === 'weak' ||
+        status === 'needs-review' ||
+        Boolean(selectedNode?.prerequisites.includes(node.id)) ||
+        Boolean(node.prerequisites.includes(selectedNodeId))
+      );
+    })
+    .sort((a, b) => {
+      const priority = (label: ProjectedLabel) => {
+        const node = nodeMap.get(label.id)!;
+        const status = viewScope === 'class' ? node.classStatus : node.status;
+        if (label.id === selectedNodeId) return 100;
+        if (status === 'weak') return 80;
+        if (status === 'needs-review') return 60;
+        if (status === 'mastered') return 40;
+        return 20;
+      };
+      return priority(b) - priority(a);
+    });
+
+  const placed: { left: number; right: number; top: number; bottom: number }[] = [];
+  const result: PlacedLabel[] = [];
+  const maxLabels = coarsePointer ? 8 : 12;
+
+  for (const label of candidates) {
+    if (result.length >= maxLabels) break;
+    const node = nodeMap.get(label.id)!;
+    const score = viewScope === 'class' ? node.classMastery : node.studentMastery;
+    const pillWidth = Math.min(198, 28 + node.label.length * 11.5 + (score > 0 ? 28 : 18));
+    const half = pillWidth / 2;
+    let x = Math.max(half + 8, Math.min(width - half - 8, label.x));
+    let y = Math.max(44, Math.min(height - 10, label.y));
+    const overlaps = () =>
+      placed.some(
+        (rect) =>
+          x - half - 5 < rect.right &&
+          x + half + 5 > rect.left &&
+          y - 4 > rect.top &&
+          y - 38 < rect.bottom
+      );
+
+    if (overlaps()) {
+      if (label.id === selectedNodeId) {
+        // The focused node always wins; nudge it up/down before giving up.
+        y = Math.max(44, Math.min(height - 10, y > height / 2 ? y - 44 : y + 44));
+        if (overlaps()) continue;
+      } else if (showAll) {
+        // "All labels" mode: try a few nearby slots instead of dropping the
+        // label outright, so a dense mobile star map still reveals more names.
+        const originX = x;
+        const originY = y;
+        const offsets: [number, number][] = [
+          [0, -30],
+          [0, 30],
+          [-46, 0],
+          [46, 0],
+          [0, -56],
+          [0, 56],
+        ];
+        let fitted = false;
+        for (const [dx, dy] of offsets) {
+          x = Math.max(half + 8, Math.min(width - half - 8, originX + dx));
+          y = Math.max(44, Math.min(height - 10, originY + dy));
+          if (!overlaps()) {
+            fitted = true;
+            break;
+          }
+        }
+        if (!fitted) continue;
+      } else {
+        continue;
+      }
+    }
+
+    placed.push({ left: x - half, right: x + half, top: y - 38, bottom: y - 4 });
+    result.push({ ...label, x, y, width: pillWidth });
+  }
+
+  return result;
+}
+
 export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
   role,
   nodes,
   reduceMotion,
+  isCoarsePointer,
   onNavigate,
 }) => {
   const [viewScope, setViewScope] = useState<'student' | 'class'>(
@@ -40,6 +153,8 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
   const [fallback2D, setFallback2D] = useState(reduceMotion);
   const [selectedNodeId, setSelectedNodeId] = useState<string>('recursion');
   const [labels, setLabels] = useState<ProjectedLabel[]>([]);
+  const [showAllLabels, setShowAllLabels] = useState(!isCoarsePointer);
+  const [canvasSize, setCanvasSize] = useState({ w: 360, h: 340 });
 
   const mountRef = useRef<HTMLDivElement | null>(null);
   const rotationRef = useRef({ theta: 0.28, phi: 1.32, radius: 13.5 });
@@ -149,46 +264,91 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
 
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
+    const activePointers = new Map<number, { x: number; y: number }>();
+    let pinchStartDistance = 0;
+    let pinchStartRadius = rotationRef.current.radius;
+    let pointerDownAt = { x: 0, y: 0 };
+    let pointerMoved = false;
+
+    const distanceBetweenPointers = () => {
+      const points = [...activePointers.values()];
+      if (points.length < 2) return 0;
+      return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+    };
 
     const onPointerDown = (e: PointerEvent) => {
-      isDraggingRef.current = true;
-      lastMouseRef.current = { x: e.clientX, y: e.clientY };
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (activePointers.size === 1) {
+        isDraggingRef.current = true;
+        pointerMoved = false;
+        pointerDownAt = { x: e.clientX, y: e.clientY };
+        lastMouseRef.current = { x: e.clientX, y: e.clientY };
+      } else if (activePointers.size === 2) {
+        pinchStartDistance = distanceBetweenPointers();
+        pinchStartRadius = rotationRef.current.radius;
+      }
     };
+
     const onPointerMove = (e: PointerEvent) => {
+      if (activePointers.has(e.pointerId)) {
+        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      }
+
+      // Two-finger pinch zoom on touch devices; wheel still works on desktop.
+      if (activePointers.size >= 2) {
+        const distance = distanceBetweenPointers();
+        if (pinchStartDistance > 0 && distance > 0) {
+          rotationRef.current.radius = Math.max(
+            7.5,
+            Math.min(20, pinchStartRadius * (pinchStartDistance / distance))
+          );
+        }
+        return;
+      }
+
       if (!isDraggingRef.current) return;
       const dx = e.clientX - lastMouseRef.current.x;
       const dy = e.clientY - lastMouseRef.current.y;
+      if (Math.hypot(e.clientX - pointerDownAt.x, e.clientY - pointerDownAt.y) > 6) {
+        pointerMoved = true;
+      }
       lastMouseRef.current = { x: e.clientX, y: e.clientY };
       rotationRef.current.theta -= dx * 0.006;
       rotationRef.current.phi = Math.max(0.45, Math.min(2.6, rotationRef.current.phi - dy * 0.006));
     };
-    const onPointerUp = (e: PointerEvent) => {
-      if (isDraggingRef.current) {
-        const dx = Math.abs(e.clientX - lastMouseRef.current.x);
-        const dy = Math.abs(e.clientY - lastMouseRef.current.y);
-        if (dx < 4 && dy < 4) {
-          const rect = renderer.domElement.getBoundingClientRect();
-          pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-          pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-          raycaster.setFromCamera(pointer, camera);
-          const intersects = raycaster.intersectObjects(nodeMeshes.map((n) => n.mesh));
-          if (intersects.length > 0) {
-            const hitId = intersects[0].object.userData.nodeId;
-            if (hitId) setSelectedNodeId(hitId);
-          }
+
+    const finishPointer = (e: PointerEvent) => {
+      activePointers.delete(e.pointerId);
+      if (activePointers.size < 2) pinchStartDistance = 0;
+      if (activePointers.size > 0) return;
+
+      // A tap selects a node; a drag must not trigger a selection.
+      if (!pointerMoved && isDraggingRef.current) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(pointer, camera);
+        const intersects = raycaster.intersectObjects(nodeMeshes.map((n) => n.mesh));
+        if (intersects.length > 0) {
+          const hitId = intersects[0].object.userData.nodeId;
+          if (hitId) setSelectedNodeId(hitId);
         }
       }
       isDraggingRef.current = false;
+      pointerMoved = false;
     };
+
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       rotationRef.current.radius = Math.max(7.5, Math.min(20, rotationRef.current.radius + e.deltaY * 0.008));
     };
 
     const dom = renderer.domElement;
+    dom.style.touchAction = 'none';
     dom.addEventListener('pointerdown', onPointerDown);
     window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointerup', finishPointer);
+    window.addEventListener('pointercancel', finishPointer);
     dom.addEventListener('wheel', onWheel, { passive: false });
 
     const onResize = () => {
@@ -233,9 +393,12 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
       stars.rotation.y += 0.0003;
       renderer.render(scene, camera);
 
-      if (frameCount % 2 === 0) {
+      // Labels are DOM nodes: updating at ~15fps keeps them stable and avoids
+      // re-rendering React on every 3D frame.
+      if (frameCount % 4 === 0 && !document.hidden) {
         const w = container.clientWidth;
         const h = container.clientHeight;
+        setCanvasSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
         const nextLabels: ProjectedLabel[] = nodeMeshes.map(({ id, basePos }) => {
           const v = basePos.clone().project(camera);
           const x = (v.x * 0.5 + 0.5) * w;
@@ -257,10 +420,20 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
       cancelAnimationFrame(animId);
       dom.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointerup', finishPointer);
+      window.removeEventListener('pointercancel', finishPointer);
       dom.removeEventListener('wheel', onWheel);
       window.removeEventListener('resize', onResize);
+      scene.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        mesh.geometry?.dispose?.();
+        const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
+        if (Array.isArray(material)) material.forEach((m) => m.dispose());
+        else material?.dispose?.();
+      });
       renderer.dispose();
+      renderer.forceContextLoss?.();
+      dom.remove();
     };
   }, [nodes, viewScope, fallback2D, reduceMotion]);
 
@@ -269,6 +442,16 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
   const activeScore = viewScope === 'class' ? selectedNode.classMastery : selectedNode.studentMastery;
   const activeMeta = STATUS_META[activeStatus];
   const isMobileStudent = role === 'student';
+  const displayLabels = declutterLabels(
+    labels,
+    nodes,
+    viewScope,
+    selectedNodeId,
+    showAllLabels,
+    canvasSize.w,
+    canvasSize.h,
+    isCoarsePointer
+  );
 
   return (
     <div className="space-y-4">
@@ -317,6 +500,18 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
 
           {!fallback2D && (
             <button
+              onClick={() => setShowAllLabels((value) => !value)}
+              className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-sky-50 border border-sky-200 text-xs font-semibold text-slate-700 cursor-pointer flex items-center gap-1"
+              title={showAllLabels ? '只显示重点标签' : '显示全部标签'}
+              aria-pressed={showAllLabels}
+            >
+              <Tags className="w-3.5 h-3.5 text-sky-600" />
+              {showAllLabels ? '标签：全部' : '标签：重点'}
+            </button>
+          )}
+
+          {!fallback2D && (
+            <button
               onClick={() => {
                 rotationRef.current = { theta: 0.28, phi: 1.32, radius: 13.5 };
               }}
@@ -354,7 +549,7 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
             <>
               <div ref={mountRef} className={`w-full ${isMobileStudent ? 'h-[340px]' : 'h-[520px]'} cursor-grab active:cursor-grabbing`} />
               <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                {labels.map((lbl) => {
+                {displayLabels.map((lbl) => {
                   if (!lbl.visible) return null;
                   const node = nodes.find((n) => n.id === lbl.id);
                   if (!node) return null;
@@ -382,8 +577,11 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
                   );
                 })}
               </div>
-              <div className="pointer-events-none absolute bottom-3 left-3 px-3 py-1.5 rounded-lg bg-slate-950/70 border border-sky-400/30 text-[11px] text-sky-100">
-                🖱️ 左键拖拽旋转 3D 星图 · 滚轮缩放 · 浅蓝光粒表示先修知识依赖方向
+              <div className="pointer-events-none absolute bottom-3 left-3 right-3 px-3 py-1.5 rounded-lg bg-slate-950/70 border border-sky-400/30 text-[11px] text-sky-100 truncate">
+                {isCoarsePointer
+                  ? '单指拖拽旋转 · 双指缩放 · 点击节点查看详情'
+                  : '左键拖拽旋转 · 滚轮缩放 · 点击节点查看详情'}
+                <span className="hidden sm:inline"> · 浅蓝光粒表示先修依赖方向</span>
               </div>
             </>
           ) : (
