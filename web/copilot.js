@@ -320,14 +320,14 @@ export function mountStudentCopilot(container, code, token, onProgress) {
   const root = document.createElement("section");
   root.className = "cp-panel cp-student";
   container.replaceChildren(root);
-  root.innerHTML = `<p class="cp-status" role="status"></p>
+  root.innerHTML = `<p class="cp-sync" role="status"></p>
     <div class="cp-slide"></div><form class="cp-question" hidden>
     <label>对当前页提问<textarea maxlength="300" rows="2" placeholder="可先点选上方段落、公式、代码或图片" required></textarea></label>
     <p class="cp-selection"></p>
     <label class="cp-consent" hidden><input type="checkbox" data-allow-ai>允许把本条疑问、授课页标题及对应课件文字发送至已配置的 AI 服务，辅助匿名归类和提出重讲建议。</label>
     <div class="cp-actions"><button type="submit" class="cp-primary">私下询问</button>
     <button type="button" data-share class="cp-secondary">匿名分享给教师</button></div>
-    <small>主动分享后，教师会看到疑问文字及其所属课件页。请勿填写姓名或学号。</small></form>
+    <small>主动分享后，教师会看到疑问文字及其所属课件页。请勿填写姓名或学号。</small><p class="cp-status" role="status"></p></form>
     <div class="cp-reply" aria-live="polite"></div>`;
   const find = (s) => root.querySelector(s),
     form = find("form"),

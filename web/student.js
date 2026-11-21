@@ -540,7 +540,7 @@ function schedule(delay) {
   timer = setTimeout(() => sync(), delay ?? (seenNetworkError ? 4500 : 2000));
 }
 async function sync(explicit = false) {
-  if (sending || syncing || !roomCode) return;
+  if (!work || sending || syncing || !roomCode) return;
   syncing = true;
   const started = epoch;
   try {
@@ -759,6 +759,26 @@ if (roomCode) {
         credentials: "same-origin",
       });
       if (res.ok) account = (await res.json()).user;
+      const logout = document.querySelector("#logout-student");
+      logout.hidden = !account;
+      logout.onclick = async () => {
+        logout.disabled = true;
+        try {
+          const result = await fetch("/api/auth/logout", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+          });
+          if (!result.ok) throw new Error();
+          location.replace("/");
+        } catch {
+          document.querySelector("#announcement").textContent =
+            "退出未完成，请重试。";
+          logout.textContent = "重新退出";
+          logout.disabled = false;
+        }
+      };
       if (account && account.role !== "student") {
         location.replace("/?next=" + encodeURIComponent(location.pathname));
         return;

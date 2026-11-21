@@ -431,3 +431,12 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+.cp-sync {
+  font-size: 13px;
+  color: #5a6787;
+  line-height: 1.6;
+  margin: 5px 0;
+}
+.cp-sync:empty {
+  display: none;
+}

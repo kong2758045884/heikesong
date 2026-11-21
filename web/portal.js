@@ -408,7 +408,7 @@ function openCourse() {
   if (isTeacher()) {
     formDialog(
       "创建课程",
-      '<label class="p-field">课程名称<input id="courseName" maxlength="80" required placeholder="例如 Python 程序设计"></label><label class="p-field">教学班<input id="className" maxlength="60" required placeholder="例如 计算机科学 1 班"></label>',
+      '<label class="p-field">课程名称<input id="courseName" maxlength="100" required placeholder="例如 Python 程序设计"></label><label class="p-field">教学班<input id="className" maxlength="80" required placeholder="例如 计算机科学 1 班"></label>',
       "创建课程",
       async () => {
         const d = await request("/api/courses", {
@@ -848,7 +848,7 @@ async function roomPage(code) {
         onCreateQuiz: (page) => {
           const ref = crypto.randomUUID?.() || Date.now().toString(36);
           const item = {
-            title: String(page.title || record.topic).slice(0, 100),
+            title: String(page.title || record.topic).slice(0, 240),
             material: String(page.material || "").slice(0, 6000),
             pageNumber: page.pageNumber,
           };

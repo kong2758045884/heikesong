@@ -279,7 +279,7 @@ function renderSetup() {
     '<div class="work-sheet"><div class="sheet-intro"><div><span class="sheet-overline">高校教师工作台</span><h2>编排随堂三问</h2></div><button class="quiet" id="sample">' +
     icon("book", 16) +
     "载入示例</button></div>" +
-    '<section class="config"><form id="topicForm"><label>大学课程<input id="subject" list="courses" required maxlength="64" value="' +
+    '<section class="config"><form id="topicForm"><label>大学课程<input id="subject" list="courses" required maxlength="100" value="' +
     safe(draft.subject) +
     '"><datalist id="courses">' +
     optionList(subjectList, draft.subject) +
@@ -1009,7 +1009,7 @@ async function start() {
     navigate(initialView);
     const ref = params.get("slide");
     if (lectureCode && !ref) {
-      $("#subject").value = c.name.slice(0, 64);
+      $("#subject").value = c.name;
       $("#topic").value = room.topic;
       $("#material").dispatchEvent(new Event("input", { bubbles: true }));
     }
@@ -1018,7 +1018,7 @@ async function start() {
       try {
         const item = JSON.parse(sessionStorage.getItem(key));
         if (item) {
-          $("#subject").value = c.name.slice(0, 64);
+          $("#subject").value = c.name;
           $("#topic").value = item.title;
           $("#material").value = item.material;
           $(".course-source").open = true;

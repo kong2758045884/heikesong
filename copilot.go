@@ -498,7 +498,7 @@ func (s *server) copilotRoute(w http.ResponseWriter, r *http.Request, code, acti
 			return nil, problem(400, "本间课堂的课件图片合计最多 32 MB。")
 		}
 		for id, v := range images {
-			if err = os.WriteFile(filepath.Join(dir, id), v.Data, 0600); err != nil {
+			if err = savePilotAsset(dir, id, v.Data); err != nil {
 				return nil, err
 			}
 		}
@@ -628,4 +628,29 @@ func (s *server) classifyPilotWithModel(ctx context.Context, p pilotPage, el pil
 	v.Suggestion = strings.TrimSpace(result.Suggestion)
 	v.Mode = "AI 辅助归类"
 	return v, true
+}
+
+// A repeated import of the same image must never truncate an asset used by an earlier slide.
+func savePilotAsset(dir, id string, data []byte) error {
+	path := filepath.Join(dir, id)
+	if _, err := os.Stat(path); err == nil {
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	f, err := os.CreateTemp(dir, "image-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(f.Name())
+	if _, err = f.Write(data); err == nil {
+		err = f.Sync()
+	}
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return err
+	}
+	return os.Rename(f.Name(), path)
 }
