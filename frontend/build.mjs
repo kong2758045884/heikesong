@@ -1,5 +1,5 @@
 import { build } from "esbuild";
-for (const name of ["model", "qr"]) {
+for (const name of ["model", "qr", "metrics"]) {
   await build({
     entryPoints: ["frontend/" + name + (name === "model" ? ".jsx" : ".js")],
     outfile: "web/assets/" + name + ".js",

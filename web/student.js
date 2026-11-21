@@ -60,32 +60,49 @@ for (const name of ["localStorage", "sessionStorage"]) {
     /* Some private browsers restrict local storage. */
   }
 }
-const diskKey = "stsw:student:v1:" + roomCode;
-let work = {
-  sessionId: "",
-  step: 0,
-  answers: [null, null, null],
-  variantAnswer: null,
-  reviewed: [],
-};
-try {
-  const old = JSON.parse(cache?.getItem(diskKey) || "null");
-  if (old && /^[a-f0-9]{32}$/.test(old.sessionId)) {
-    work.sessionId = old.sessionId;
-    work.reviewed = Array.isArray(old.reviewed) ? old.reviewed.filter(i => Number.isInteger(i) && i >= 0 && i <= 3) : [];
-    work.step =
-      Number.isInteger(old.step) && old.step >= 0 && old.step < 3
-        ? old.step
-        : 0;
-    work.answers = work.answers.map((_, i) =>
-      validAnswer(old.answers?.[i]) ? old.answers[i] : null,
-    );
-    work.variantAnswer = validAnswer(old.variantAnswer)
-      ? old.variantAnswer
-      : null;
+let diskKey,
+  work,
+  account = null,
+  companionsStarted = false,
+  livePage = null;
+function restoreProgress() {
+  diskKey = "stsw:student:v1:" + roomCode + (account ? ":" + account.id : "");
+  work = {
+    sessionId: "",
+    step: 0,
+    answers: [null, null, null],
+    variantAnswer: null,
+    reviewed: [],
+  };
+  try {
+    const old = JSON.parse(cache?.getItem(diskKey) || "null");
+    if (old && /^[a-f0-9]{32}$/.test(old.sessionId)) {
+      work.sessionId = old.sessionId;
+      work.reviewed = Array.isArray(old.reviewed)
+        ? old.reviewed.filter((i) => Number.isInteger(i) && i >= 0 && i <= 3)
+        : [];
+      work.step =
+        Number.isInteger(old.step) && old.step >= 0 && old.step < 3
+          ? old.step
+          : 0;
+      work.answers = work.answers.map((_, i) =>
+        validAnswer(old.answers?.[i]) ? old.answers[i] : null,
+      );
+      work.variantAnswer = validAnswer(old.variantAnswer)
+        ? old.variantAnswer
+        : null;
+    }
+  } catch {
+    /* Discard incomplete browser drafts. */
   }
-} catch {
-  /* Discard incomplete browser drafts. */
+  if (!work.sessionId && roomCode) {
+    const bytes = new Uint8Array(16);
+    window.crypto.getRandomValues(bytes);
+    work.sessionId = Array.from(bytes, (b) =>
+      b.toString(16).padStart(2, "0"),
+    ).join("");
+    remember();
+  }
 }
 function validAnswer(value) {
   return Number.isInteger(value) && value >= 0 && value <= 3;
@@ -97,18 +114,12 @@ function remember() {
     cache = null;
   }
 }
-if (!work.sessionId && roomCode) {
-  const bytes = new Uint8Array(16);
-  window.crypto.getRandomValues(bytes);
-  work.sessionId = Array.from(bytes, (b) =>
-    b.toString(16).padStart(2, "0"),
-  ).join("");
-  remember();
-}
-
 async function api(path, body) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), path === "ask" ? 45000 : 9000);
+  const timeout = setTimeout(
+    () => controller.abort(),
+    path === "ask" ? 45000 : 9000,
+  );
   try {
     const headers = {
       Accept: "application/json",
@@ -151,9 +162,11 @@ function topicCover() {
   const closed = snapshot.phase === "closed";
   const status = closed
     ? "课堂已结束"
-    : snapshot.phase === "variant"
-      ? "课堂巩固中"
-      : "课堂进行中";
+    : snapshot.phase === "lecture"
+      ? "正在授课"
+      : snapshot.phase === "variant"
+        ? "课堂巩固中"
+        : "课堂进行中";
   const meta = [snapshot.grade, snapshot.subject]
     .filter(Boolean)
     .map((value) => `<span class="meta-piece">${escapeText(value)}</span>`)
@@ -248,16 +261,54 @@ function questionView(variant) {
   </form>`;
 }
 function resources() {
-  if (!snapshot.material?.trim()) return "";
+  const hasMaterial = !!snapshot.material?.trim();
+  if (!hasMaterial && !livePage) return "";
   return `<nav class="resource-tools" aria-label="课程学习资料">
-    <button type="button" data-resource="reading">${glyph("book")}课程讲义</button>
-    <button type="button" data-resource="asking">${glyph("feedback")}讲义答疑</button>
+    ${livePage ? `<button type="button" data-resource="live">${glyph("layers")}授课第 ${livePage.current + 1} 页</button>` : ""}
+    ${
+      hasMaterial
+        ? `<button type="button" data-resource="reading">${glyph("book")}课程讲义</button>
+    <button type="button" data-resource="asking">${glyph("feedback")}讲义答疑</button>`
+        : ""
+    }
   </nav>`;
 }
 
+async function mountCompanions() {
+  if (companionsStarted) return;
+  companionsStarted = true;
+  const attendance = import("/attendance.js").then(({ mountAttendance }) =>
+    mountAttendance(document.querySelector("#student-attendance"), roomCode, {
+      role: "student",
+      sessionId: work.sessionId,
+    }),
+  );
+  const pilot = import("/copilot.js").then(({ mountStudentCopilot }) =>
+    mountStudentCopilot(
+      document.querySelector("#live"),
+      roomCode,
+      work.sessionId,
+      (data) => {
+        livePage = data.page ? data : null;
+        const old = screen.querySelector(".resource-tools");
+        if (old) old.outerHTML = resources();
+        else if (snapshot)
+          screen
+            .querySelector(".topic-cover")
+            ?.insertAdjacentHTML("afterend", resources());
+      },
+    ),
+  );
+  await Promise.allSettled([attendance, pilot]);
+}
+
 function revisionList(entries) {
-  const toReview = entries.map((entry, index) => ({...entry, index}))
-    .filter(({ selected, correct }) => validAnswer(selected) && validAnswer(correct) && selected !== correct);
+  const toReview = entries
+    .map((entry, index) => ({ ...entry, index }))
+    .filter(
+      ({ selected, correct }) =>
+        validAnswer(selected) && validAnswer(correct) && selected !== correct,
+    );
   if (!toReview.length) {
     return '<section class="revision"><h2>本次复习清单</h2><p>已开放反馈的题目中，暂无错题需要回看。</p></section>';
   }
@@ -265,15 +316,20 @@ function revisionList(entries) {
     "遮住解析，用自己的话重述正确选项，再指出原选项遗漏的条件。",
     "对照原选项和正确选项，写下一处会改变结论的差别。",
     "换一个条件再推演一次，检查原先那一步会得到什么结果。",
-    "回看巩固题，把这一次修正的解题步骤写在笔记里。"
+    "回看巩固题，把这一次修正的解题步骤写在笔记里。",
   ];
   function actionFor(q, index) {
-    if (snapshot.topic === "递归出口与调用栈" && q.prompt.includes("执行 total(3)")) {
+    if (
+      snapshot.topic === "递归出口与调用栈" &&
+      q.prompt.includes("执行 total(3)")
+    ) {
       return "从 total(0) 开始画出四个栈帧，逐层填写返回值，再圈出最终交给调用者的值。";
     }
     return actions[index];
   }
-  const tasks = toReview.map(({q, selected, correct, explanation, title, index}) => `
+  const tasks = toReview
+    .map(
+      ({ q, selected, correct, explanation, title, index }) => `
     <li>
       <label><input type="checkbox" data-review="${index}" ${work.reviewed.includes(index) ? "checked" : ""}>
         <b>${escapeText(title)}</b><span>已复习</span>
@@ -281,7 +337,9 @@ function revisionList(entries) {
       <p class="revision-action">${actionFor(q, index)}</p>
       <p>原选 ${optionLetter(selected)}「${escapeText(q.options[selected])}」 · 正确 ${optionLetter(correct)}「${escapeText(q.options[correct])}」</p>
       <details><summary>回看解析</summary><p>${escapeText(explanation)}</p></details>
-    </li>`).join("");
+    </li>`,
+    )
+    .join("");
   return `<section class="revision"><h2>本次复习清单</h2><ul>${tasks}</ul></section>`;
 }
 
@@ -333,7 +391,8 @@ function review() {
         glyph("feedback") +
         "我的答题反馈</h2>" +
         details +
-        "</section>" + revisionList(entries)
+        "</section>" +
+        revisionList(entries)
     : "";
 }
 function receipt() {
@@ -364,11 +423,23 @@ function receipt() {
 }
 function render() {
   screen.removeAttribute("aria-busy");
+  const lecture = snapshot.phase === "lecture";
   const ask =
-    snapshot.phase !== "closed" && (!snapshot.submitted || isVariantTurn());
-  const content = ask ? questionView(isVariantTurn()) : receipt();
+    !lecture &&
+    snapshot.questions.length > 0 &&
+    snapshot.phase !== "closed" &&
+    (!snapshot.submitted || isVariantTurn());
+  const waiting = `<section class="lecture-wait"><div>${glyph("book")}课堂授课中</div><h2>随教师查看本页课件</h2>
+    <p>遇到疑问可以点选课件内容提问。教师发布随堂三问后，题目会自动出现在这里。</p></section>`;
+  const content = lecture
+    ? waiting
+    : ask
+      ? questionView(isVariantTurn())
+      : receipt();
   const note = cache
-    ? "匿名参与"
+    ? account
+      ? "账号参与 · 投屏仅展示班级汇总"
+      : "匿名参与"
     : "匿名参与 · 当前浏览器无法保存进度，请保持页面打开";
   screen.innerHTML =
     topicCover() +
@@ -376,7 +447,8 @@ function render() {
     content +
     (snapshot.submitted ? review() : "") +
     (snapshot.submitted && snapshot.topic === "递归出口与调用栈"
-      ? '<details class="stack-practice"><summary>动手推演调用栈</summary><edu-stack></edu-stack></details>' : "") +
+      ? '<details class="stack-practice"><summary>动手推演调用栈</summary><edu-stack></edu-stack></details>'
+      : "") +
     '<p class="privacy">' +
     glyph("shield") +
     note +
@@ -421,8 +493,14 @@ function renderInitialError(error) {
     "</section>";
 }
 function accept(state) {
-  if (!Array.isArray(state.questions) || state.questions.length !== 3)
+  const questions = state.questions ?? [];
+  const awaiting =
+    (state.phase === "lecture" || state.phase === "closed") &&
+    questions.length === 0;
+  if (!Array.isArray(questions) || (!awaiting && questions.length !== 3))
     throw new Error("题目数据不完整");
+  state.questions = questions;
+  const nowPublished = snapshot?.phase === "lecture" && state.phase === "open";
   const key = JSON.stringify(state);
   const hasNewVariant =
     snapshot &&
@@ -444,8 +522,10 @@ function accept(state) {
   if (key !== snapshotKey) {
     snapshotKey = key;
     render();
+    mountCompanions();
     document.title = state.topic + " · EduMind · 随堂三问";
     if (hasNewVariant) announcement.textContent = "老师发布了新的巩固题。";
+    if (nowPublished) announcement.textContent = "老师已发布随堂三问。";
   }
 }
 function schedule(delay) {
@@ -475,6 +555,10 @@ async function sync(explicit = false) {
     accept(data);
   } catch (err) {
     if (started !== epoch) return;
+    if (err.status === 401 && (!snapshot || account)) {
+      location.replace("/?next=" + encodeURIComponent(location.pathname));
+      return;
+    }
     seenNetworkError = true;
     if (!snapshot) {
       initError = err;
@@ -536,7 +620,7 @@ screen.addEventListener("change", (event) => {
   const task = event.target.closest("input[data-review]");
   if (task) {
     const index = Number(task.dataset.review);
-    work.reviewed = work.reviewed.filter(item => item !== index);
+    work.reviewed = work.reviewed.filter((item) => item !== index);
     if (task.checked) work.reviewed.push(index);
     remember();
     return;
@@ -581,56 +665,73 @@ const resultPanel = document.querySelector("#ask-result");
 let lastResource = "reading";
 
 function showResource(tab) {
-  if (!snapshot.material?.trim()) return;
+  if (tab === "live" ? !livePage : !snapshot.material?.trim()) return;
   lastResource = tab;
   document.querySelector("#reading-title").textContent = snapshot.topic;
-  const material = snapshot.material.trim();
-  const withoutHeading = material.split("\n")[0].trim() === snapshot.topic ? material.slice(material.indexOf("\n") + 1).trimStart() : material;
+  const material = snapshot.material?.trim() || "";
+  const withoutHeading =
+    material.split("\n")[0].trim() === snapshot.topic
+      ? material.slice(material.indexOf("\n") + 1).trimStart()
+      : material;
   document.querySelector("#reading-material").textContent = withoutHeading;
-  for (const section of ["reading", "asking"]) {
+  for (const section of ["live", "reading", "asking"]) {
+    resourceDialog.querySelector(`[data-resource-tab="${section}"]`).hidden =
+      section === "live" ? !livePage : !material;
     document.getElementById(section).hidden = section !== tab;
-    resourceDialog.querySelector(`[data-resource-tab="${section}"]`).setAttribute("aria-pressed", String(section === tab));
+    resourceDialog
+      .querySelector(`[data-resource-tab="${section}"]`)
+      .setAttribute("aria-pressed", String(section === tab));
   }
   if (!resourceDialog.open) resourceDialog.showModal();
 }
-document.querySelector("#leave-resource").onclick = () => resourceDialog.close();
-resourceDialog.addEventListener("close", () => screen.querySelector(`[data-resource="${lastResource}"]`)?.focus({preventScroll:true}));
-document.querySelector("#ask-form").addEventListener("submit", async event => {
-  event.preventDefault();
-  const question = questionInput.value.trim();
-  if (!question || askSubmit.disabled) {
-    questionInput.focus();
-    return;
-  }
-  askSubmit.disabled = true;
-  questionInput.readOnly = true;
-  resultPanel.setAttribute("aria-busy", "true");
-  resultPanel.textContent = "正在查阅本课讲义…";
-  try {
-    const reply = await api("ask", {question});
-    const quote = typeof reply.source === "string" ? reply.source.trim() : "";
-    if (quote) {
-      const fromModel = reply.mode === "ai" || reply.mode === "AI 讲义问答";
-      const mode = fromModel ? "AI 讲义问答" : "讲义检索";
-      resultPanel.innerHTML = `<p class="answer-mode">${mode}</p>
+document.querySelector("#leave-resource").onclick = () =>
+  resourceDialog.close();
+resourceDialog.addEventListener("close", () =>
+  screen
+    .querySelector(`[data-resource="${lastResource}"]`)
+    ?.focus({ preventScroll: true }),
+);
+document
+  .querySelector("#ask-form")
+  .addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const question = questionInput.value.trim();
+    if (!question || askSubmit.disabled) {
+      questionInput.focus();
+      return;
+    }
+    askSubmit.disabled = true;
+    questionInput.readOnly = true;
+    resultPanel.setAttribute("aria-busy", "true");
+    resultPanel.textContent = "正在查阅本课讲义…";
+    try {
+      const reply = await api("ask", { question });
+      const quote = typeof reply.source === "string" ? reply.source.trim() : "";
+      if (quote) {
+        const fromModel = reply.mode === "ai" || reply.mode === "AI 讲义问答";
+        const mode = fromModel ? "AI 讲义问答" : "讲义检索";
+        resultPanel.innerHTML = `<p class="answer-mode">${mode}</p>
         <h3>${escapeText(question)}</h3>
         <p class="grounded-answer">${escapeText(reply.answer)}</p>
         <h4>讲义原文</h4><blockquote>${escapeText(quote)}</blockquote>`;
-    } else {
-      resultPanel.innerHTML = `<h3>本次答疑没有可引用的讲义原文</h3><p>${escapeText(reply.answer || "请换用讲义中的术语重新提问，或向任课教师确认。")}</p>`;
+      } else {
+        resultPanel.innerHTML = `<h3>本次答疑没有可引用的讲义原文</h3><p>${escapeText(reply.answer || "请换用讲义中的术语重新提问，或向任课教师确认。")}</p>`;
+      }
+    } catch (err) {
+      resultPanel.textContent = err.status
+        ? err.message
+        : "暂未收到答复。请检查网络后再次提问。";
+    } finally {
+      resultPanel.removeAttribute("aria-busy");
+      askSubmit.disabled = false;
+      questionInput.readOnly = false;
     }
-  } catch (err) {
-    resultPanel.textContent = err.status ? err.message : "暂未收到答复。请检查网络后再次提问。";
-  } finally {
-    resultPanel.removeAttribute("aria-busy");
-    askSubmit.disabled = false;
-    questionInput.readOnly = false;
-  }
-});
+  });
 document.addEventListener("click", (event) => {
   const btn = event.target.closest("button");
   if (!btn || btn.disabled) return;
-  if (btn.dataset.resource || btn.dataset.resourceTab) showResource(btn.dataset.resource || btn.dataset.resourceTab);
+  if (btn.dataset.resource || btn.dataset.resourceTab)
+    showResource(btn.dataset.resource || btn.dataset.resourceTab);
   if (btn.hasAttribute("data-back") && !sending && work.step > 0)
     moveStep(work.step - 1);
   if (btn.hasAttribute("data-sync")) sync(true);
@@ -651,7 +752,25 @@ if (roomCode) {
     '<span>课堂码</span><b class="room-digits">' +
     escapeText(roomCode) +
     "</b>";
-  sync();
+  async function startSession() {
+    try {
+      const res = await fetch("/api/auth/me", {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      if (res.ok) account = (await res.json()).user;
+      if (account && account.role !== "student") {
+        location.replace("/?next=" + encodeURIComponent(location.pathname));
+        return;
+      }
+      restoreProgress();
+      await sync();
+    } catch {
+      restoreProgress();
+      await sync();
+    }
+  }
+  startSession();
 } else {
   renderInitialError();
 }

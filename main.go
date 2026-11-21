@@ -83,7 +83,7 @@ type studentState struct {
 
 func state(r *room, id string) (studentState, error) {
 	p, err := r.student(id)
-	out := studentState{}
+	out := studentState{Questions: []questionView{}}
 	if err != nil {
 		return out, err
 	}
@@ -141,7 +141,7 @@ type roomStats struct {
 }
 
 func stats(r *room, link string) roomStats {
-	o := roomStats{Code: r.Code, Subject: r.Draft.Subject, Grade: r.Draft.Grade, Topic: r.Draft.Topic, Material: r.Draft.Material,
+	o := roomStats{Questions: []questionStats{}, Code: r.Code, Subject: r.Draft.Subject, Grade: r.Draft.Grade, Topic: r.Draft.Topic, Material: r.Draft.Material,
 		Phase: r.Phase, Joined: len(r.Students), Variants: r.Draft.Variants, Variant: r.Variant, VariantIndex: r.VariantIndex, JoinURL: link, VariantCounts: make([]int, 4)}
 	for _, q := range r.Draft.Questions {
 		o.Questions = append(o.Questions, questionStats{Question: q, Counts: make([]int, len(q.Options))})
@@ -169,7 +169,9 @@ func stats(r *room, link string) roomStats {
 			}
 		}
 	}
-	o.Pending = o.Joined - o.Submitted
+	if len(r.Draft.Questions) > 0 {
+		o.Pending = o.Joined - o.Submitted
+	}
 	return o
 }
 
@@ -232,14 +234,30 @@ func (s *server) joinURL(r *http.Request, code string) string {
 
 func (s *server) runAPI(w http.ResponseWriter, r *http.Request) (any, error) {
 	path := r.URL.Path
+	switch {
+	case strings.HasPrefix(path, "/api/auth/"):
+		return s.authRoute(w, r, strings.TrimPrefix(path, "/api/auth/"))
+	case path == "/api/knowledge":
+		return s.knowledge(w, r)
+	case path == "/api/courses" || path == "/api/courses/join":
+		return s.coursesRoute(w, r)
+	case path == "/api/learning" || path == "/api/learning/review" || path == "/api/learning/diagnose":
+		return s.learning(w, r)
+	}
 	switch path {
 	case "/api/sample":
 		if err := requireMethod(w, r, "GET"); err != nil {
 			return nil, err
 		}
+		if _, err := s.requireRole(r, "teacher"); err != nil {
+			return nil, err
+		}
 		return sampleDraft(), nil
 	case "/api/generate":
 		if err := requireMethod(w, r, "POST"); err != nil {
+			return nil, err
+		}
+		if _, err := s.requireRole(r, "teacher"); err != nil {
 			return nil, err
 		}
 		var in GenerateInput
@@ -270,20 +288,39 @@ func (s *server) runAPI(w http.ResponseWriter, r *http.Request) (any, error) {
 		if err := requireMethod(w, r, "POST"); err != nil {
 			return nil, err
 		}
+		u, err := s.requireRole(r, "teacher")
+		if err != nil {
+			return nil, err
+		}
 		var input struct {
-			Draft    Draft `json:"draft"`
-			Feedback bool  `json:"feedback"`
+			CourseID string `json:"courseId"`
+			Lecture  bool   `json:"lecture"`
+			Topic    string `json:"topic"`
+			Draft    Draft  `json:"draft"`
+			Feedback bool   `json:"feedback"`
 		}
 		if err := readJSON(w, r, &input); err != nil {
 			return nil, err
 		}
-		room, err := s.store.create(input.Draft, input.Feedback)
+		course, ok := s.store.platform.getCourse(input.CourseID)
+		if !ok || course.OwnerID != u.ID {
+			return nil, problem(403, "请选择本人任教的课程教学班。")
+		}
+		var created *room
+		if input.Lecture {
+			created, err = s.store.createLecture(course, input.Topic)
+		} else {
+			created, err = s.store.createForCourse(input.Draft, input.Feedback, u.ID, course.ID)
+		}
 		if err != nil {
 			return nil, err
 		}
-		return map[string]string{"code": room.Code, "teacherToken": room.TeacherToken, "joinUrl": s.joinURL(r, room.Code)}, nil
+		return map[string]string{"code": created.Code, "teacherToken": created.TeacherToken, "joinUrl": s.joinURL(r, created.Code), "phase": created.Phase}, nil
 	}
 	parts := strings.Split(strings.TrimPrefix(path, "/api/rooms/"), "/")
+	if strings.HasPrefix(path, "/api/rooms/") && len(parts) == 3 && codePattern.MatchString(parts[0]) && parts[1] == "copilot" {
+		return s.copilotRoute(w, r, parts[0], parts[2])
+	}
 	if !strings.HasPrefix(path, "/api/rooms/") || len(parts) != 2 || !codePattern.MatchString(parts[0]) {
 		return nil, problem(404, "找不到这个课堂入口。")
 	}
@@ -294,12 +331,12 @@ func (s *server) runAPI(w http.ResponseWriter, r *http.Request) (any, error) {
 	}
 	token := bearer(r)
 	switch action {
-	case "stats", "variant", "close":
-		if err = current.allowTeacher(token); err != nil {
+	case "stats", "publish", "variant", "close":
+		if err = s.authorizeTeacher(r, current); err != nil {
 			return nil, err
 		}
 	case "state", "answers", "retry", "ask":
-		if _, err = current.student(token); err != nil {
+		if token, err = s.authorizeStudent(r, current); err != nil {
 			return nil, err
 		}
 	case "join":
@@ -336,7 +373,24 @@ func (s *server) runAPI(w http.ResponseWriter, r *http.Request) (any, error) {
 		if err = readJSON(w, r, &body); err != nil {
 			return nil, err
 		}
-		token = body.ID
+		token, err = s.studentKey(r, current, body.ID)
+		if err != nil {
+			return nil, err
+		}
+		if current.CourseID != "" {
+			u, authErr := s.requireRole(r, "student")
+			if authErr != nil {
+				return nil, authErr
+			}
+			if current.Phase == "closed" {
+				if _, exists := current.Students[token]; !exists {
+					return nil, problem(409, "本次课堂活动已结束。")
+				}
+			}
+			if err = s.store.platform.enroll(current.CourseID, u.ID); err != nil {
+				return nil, err
+			}
+		}
 		current, err = s.store.update(code, func(v *room) (bool, error) { return v.join(token) })
 	case "answers":
 		var body struct {
@@ -364,7 +418,33 @@ func (s *server) runAPI(w http.ResponseWriter, r *http.Request) (any, error) {
 			return nil, problem(400, "请选择一个巩固题选项。")
 		}
 		current, err = s.store.update(code, func(v *room) (bool, error) { return v.retry(token, *body.Answer) })
+	case "publish":
+		var body struct {
+			Draft    Draft `json:"draft"`
+			Feedback bool  `json:"feedback"`
+		}
+		if err = readJSON(w, r, &body); err != nil {
+			return nil, err
+		}
+		if err = validateDraft(body.Draft); err != nil {
+			return nil, err
+		}
+		current, err = s.store.update(code, func(v *room) (bool, error) {
+			if v.Phase == "open" && v.Feedback == body.Feedback && reflect.DeepEqual(v.Draft, body.Draft) {
+				return false, nil
+			}
+			if v.Phase != "lecture" {
+				return false, problem(409, "当前课堂已结束或已发布三问。")
+			}
+			v.Draft = body.Draft
+			v.Feedback = body.Feedback
+			v.Phase = "open"
+			return true, nil
+		})
 	case "variant":
+		if current.Phase == "lecture" {
+			return nil, problem(409, "请先发布随堂三问。")
+		}
 		var body struct {
 			Index    *int     `json:"index"`
 			Question Question `json:"question"`
@@ -400,7 +480,7 @@ func (s *server) runAPI(w http.ResponseWriter, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if action == "variant" || action == "close" {
+	if action == "publish" || action == "variant" || action == "close" {
 		return stats(current, s.joinURL(r, code)), nil
 	}
 	return state(current, token)
@@ -409,7 +489,31 @@ func (s *server) runAPI(w http.ResponseWriter, r *http.Request) (any, error) {
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "same-origin")
+	if !s.validOrigin(r) {
+		writeJSON(w, 403, map[string]string{"error": "请从课堂平台同源页面提交。"})
+		return
+	}
+	if s.matchAttendance(w, r) {
+		return
+	}
 	switch {
+	case r.URL.Path == "/" || r.URL.Path == "/portal":
+		entry := r.Clone(r.Context())
+		entry.URL.Path = "/portal.html"
+		s.files.ServeHTTP(w, entry)
+	case r.URL.Path == "/teach" || r.URL.Path == "/index.html":
+		w.Header().Set("Cache-Control", "no-store")
+		if _, err := s.requireRole(r, "teacher"); err != nil {
+			next := "/teach"
+			if id := r.URL.Query().Get("course"); len(id) == 24 && sessionPattern.MatchString(id) {
+				next += "?course=" + url.QueryEscape(id)
+			}
+			http.Redirect(w, r, "/?next="+url.QueryEscape(next), http.StatusFound)
+			return
+		}
+		entry := r.Clone(r.Context())
+		entry.URL.Path = "/"
+		s.files.ServeHTTP(w, entry)
 	case r.URL.Path == "/healthz":
 		writeJSON(w, 200, map[string]string{"status": "ok"})
 	case strings.HasPrefix(r.URL.Path, "/api/"):
@@ -428,6 +532,13 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !codePattern.MatchString(strings.TrimPrefix(r.URL.Path, "/join/")) {
 			http.NotFound(w, r)
 			return
+		}
+		room, err := s.store.get(strings.TrimPrefix(r.URL.Path, "/join/"))
+		if err == nil && room.TeacherID != "" {
+			if _, err = s.requireRole(r, "student"); err != nil {
+				http.Redirect(w, r, "/?next="+url.QueryEscape(r.URL.Path), http.StatusFound)
+				return
+			}
 		}
 		entry := r.Clone(r.Context())
 		entry.URL.Path = "/student.html"
@@ -485,6 +596,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	startAttendanceCleanup(store.dir)
 	base := strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")), "/")
 	if base != "" {
 		u, err := url.Parse(base)

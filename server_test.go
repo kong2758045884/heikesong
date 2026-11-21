@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -38,6 +39,20 @@ func (a testAPI) call(method, path, token string, body any, want int, out any) {
 	if token != "" {
 		r.Header.Set("Authorization", "Bearer "+token)
 	}
+	// Older lifecycle fixtures exercise ownerless rooms with an authenticated
+	// teacher carrying the original management token.
+	for _, action := range []string{"/stats", "/variant", "/close"} {
+		if strings.HasSuffix(path, action) {
+			p := a.s.store.platform
+			fixture := strings.Repeat("f", 64)
+			p.mu.Lock()
+			p.data.Accounts["legacy-teacher"] = accountRecord{account: account{ID: "legacy-teacher", Username: "legacy-teacher", Role: "teacher"}}
+			p.data.Sessions[opaqueHash(fixture)] = loginSession{"legacy-teacher", time.Now().Add(time.Hour).Unix()}
+			p.mu.Unlock()
+			r.AddCookie(&http.Cookie{Name: authCookie, Value: fixture})
+			break
+		}
+	}
 	w := httptest.NewRecorder()
 	a.s.ServeHTTP(w, r)
 	if w.Code != want {
@@ -54,10 +69,13 @@ func TestClassroomHTTPLifecycleAndRestart(t *testing.T) {
 	dir := t.TempDir()
 	api := testServer(t, dir)
 	d := sampleDraft()
-	var created struct{ Code, TeacherToken, JoinURL string }
-	api.call("POST", "/api/rooms", "", map[string]any{"draft": d, "feedback": true}, 200, &created)
-	if !codePattern.MatchString(created.Code) || created.JoinURL != "http://192.168.1.3:8787/join/"+created.Code {
-		t.Fatalf("invalid new room: %+v", created)
+	// Rooms saved before courses existed still accept their original join and management credentials.
+	created, err := api.s.store.create(d, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !codePattern.MatchString(created.Code) {
+		t.Fatal("invalid room code")
 	}
 	prefix := "/api/rooms/" + created.Code + "/"
 	var state studentState
@@ -200,13 +218,18 @@ func TestExplicitPublicBaseAndValidation(t *testing.T) {
 	a := testServer(t, t.TempDir())
 	a.s.publicBase = "https://classroom.example.edu"
 	d := sampleDraft()
-	var created struct{ Code, JoinURL string }
-	a.call("POST", "/api/rooms", "", map[string]any{"draft": d}, 200, &created)
-	if created.JoinURL != a.s.publicBase+"/join/"+created.Code {
-		t.Fatal("wrong public link")
+	created, err := a.s.store.create(d, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest("GET", "http://localhost:8787", nil)
+	if link := a.s.joinURL(req, created.Code); link != a.s.publicBase+"/join/"+created.Code {
+		t.Fatal(link)
 	}
 	d.Questions[0].Options[2] = d.Questions[0].Options[1]
-	a.call("POST", "/api/rooms", "", map[string]any{"draft": d}, 400, nil)
+	if _, err = a.s.store.create(d, false); err == nil {
+		t.Fatal("accepted duplicate options")
+	}
 }
 
 func TestPublicDemoBounds(t *testing.T) {
@@ -249,7 +272,8 @@ func TestEmbeddedTeacherStudentAndAssets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &server{files: http.FileServer(http.FS(root))}
+	s := testServer(t, t.TempDir()).s
+	s.files = http.FileServer(http.FS(root))
 	for _, path := range []string{"/", "/join/111111", "/student.js", "/assets/qr.js"} {
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, httptest.NewRequest("GET", path, nil))

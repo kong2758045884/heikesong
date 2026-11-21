@@ -144,3 +144,4 @@ export function mountModel(host, rates) {
   draw(rates);
   return { update: draw, destroy: () => root.unmount() };
 }
+export { mountSpace } from "./learning-space.js";

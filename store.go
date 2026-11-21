@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 )
 
@@ -62,11 +63,15 @@ type Draft struct {
 }
 
 type participant struct {
-	Answers []int `json:"answers,omitempty"`
-	Retry   *int  `json:"retry,omitempty"`
+	JoinedAt string `json:"joinedAt,omitempty"`
+	Answers  []int  `json:"answers,omitempty"`
+	Retry    *int   `json:"retry,omitempty"`
 }
 
 type room struct {
+	TeacherID    string                 `json:"teacherId,omitempty"`
+	CourseID     string                 `json:"courseId,omitempty"`
+	CreatedAt    string                 `json:"createdAt,omitempty"`
 	Code         string                 `json:"code"`
 	TeacherToken string                 `json:"teacherToken"`
 	Draft        Draft                  `json:"draft"`
@@ -78,9 +83,10 @@ type room struct {
 }
 
 type roomStore struct {
-	mu    sync.RWMutex
-	dir   string
-	rooms map[string]*room
+	platform *platformStore
+	mu       sync.RWMutex
+	dir      string
+	rooms    map[string]*room
 }
 
 const maxRooms = 200
@@ -102,7 +108,7 @@ func validText(s string, limit int) bool {
 }
 
 func validateInput(in GenerateInput) error {
-	if !validText(in.Subject, 64) || !validText(in.Grade, 64) || !validText(in.Topic, 240) {
+	if !validText(in.Subject, 100) || !validText(in.Grade, 80) || !validText(in.Topic, 240) {
 		return problem(400, "请填写课程、授课对象及知识点，知识点限 240 字。")
 	}
 	if utf8.RuneCountInString(in.Material) > 6000 {
@@ -158,10 +164,18 @@ func validateDraft(d Draft) error {
 }
 
 func validSnapshot(r *room) bool {
-	if r.Students == nil || !sessionPattern.MatchString(r.TeacherToken) || validateDraft(r.Draft) != nil {
+	if r.Students == nil || !sessionPattern.MatchString(r.TeacherToken) {
 		return false
 	}
-	if r.Phase != "open" && r.Phase != "variant" && r.Phase != "closed" {
+	empty := len(r.Draft.Questions) == 0
+	if empty {
+		if (r.Phase != "lecture" && r.Phase != "closed") || r.CourseID == "" || r.TeacherID == "" || len(r.Draft.Variants) > 0 || r.Variant != nil || r.VariantIndex != nil {
+			return false
+		}
+		if validateInput(GenerateInput{Subject: r.Draft.Subject, Grade: r.Draft.Grade, Topic: r.Draft.Topic, Material: r.Draft.Material}) != nil {
+			return false
+		}
+	} else if (r.Phase != "open" && r.Phase != "variant" && r.Phase != "closed") || validateDraft(r.Draft) != nil {
 		return false
 	}
 	hasVariant := r.Variant != nil
@@ -172,7 +186,7 @@ func validSnapshot(r *room) bool {
 		return false
 	}
 	for id, p := range r.Students {
-		if !sessionPattern.MatchString(id) || p.Answers != nil && len(p.Answers) != 3 {
+		if !sessionPattern.MatchString(id) || p.Answers != nil && (empty || len(p.Answers) != 3) {
 			return false
 		}
 		for _, answer := range p.Answers {
@@ -191,7 +205,11 @@ func openStore(dir string) (*roomStore, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
-	s := &roomStore{dir: dir, rooms: make(map[string]*room)}
+	platform, err := openPlatform(dir)
+	if err != nil {
+		return nil, err
+	}
+	s := &roomStore{dir: dir, platform: platform, rooms: make(map[string]*room)}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -238,9 +256,26 @@ func (s *roomStore) save(r *room) error {
 }
 
 func (s *roomStore) create(d Draft, feedback bool) (*room, error) {
+	return s.createForCourse(d, feedback, "", "")
+}
+func (s *roomStore) createForCourse(d Draft, feedback bool, teacherID, courseID string) (*room, error) {
 	if err := validateDraft(d); err != nil {
 		return nil, err
 	}
+	return s.createRoom(d, feedback, teacherID, courseID, "open")
+}
+func (s *roomStore) createLecture(c course, topic string) (*room, error) {
+	topic = strings.TrimSpace(topic)
+	if topic == "" {
+		topic = c.Name
+	}
+	d := Draft{Subject: c.Name, Grade: c.ClassName, Topic: topic, Questions: []Question{}, Variants: []Question{}}
+	if err := validateInput(GenerateInput{Subject: d.Subject, Grade: d.Grade, Topic: d.Topic}); err != nil {
+		return nil, err
+	}
+	return s.createRoom(d, false, c.OwnerID, c.ID, "lecture")
+}
+func (s *roomStore) createRoom(d Draft, feedback bool, teacherID, courseID, phase string) (*room, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if len(s.rooms) >= maxRooms {
@@ -265,7 +300,7 @@ func (s *roomStore) create(d Draft, feedback bool) (*room, error) {
 	if code == "" {
 		return nil, problem(503, "暂时无法分配课堂码，请重试。")
 	}
-	r := &room{Code: code, TeacherToken: hex.EncodeToString(token), Draft: d, Phase: "open", Feedback: feedback, Students: make(map[string]participant)}
+	r := &room{Code: code, TeacherID: teacherID, CourseID: courseID, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano), TeacherToken: hex.EncodeToString(token), Draft: d, Phase: phase, Feedback: feedback, Students: make(map[string]participant)}
 	if err := s.save(r); err != nil {
 		return nil, err
 	}
@@ -338,7 +373,7 @@ func (r *room) join(id string) (bool, error) {
 	if len(r.Students) >= maxParticipants {
 		return false, problem(409, "课堂参与人数已达上限。")
 	}
-	r.Students[id] = participant{}
+	r.Students[id] = participant{JoinedAt: time.Now().UTC().Format(time.RFC3339Nano)}
 	return true, nil
 }
 
@@ -367,6 +402,9 @@ func (r *room) submit(id string, answers []int) (bool, error) {
 	}
 	if r.Phase == "closed" {
 		return false, problem(409, "课堂已结束，已停止接收答卷。")
+	}
+	if r.Phase == "lecture" {
+		return false, problem(409, "教师正在授课，三问尚未发布。")
 	}
 	if len(answers) != len(r.Draft.Questions) {
 		return false, problem(400, "请完成三道题再提交。")

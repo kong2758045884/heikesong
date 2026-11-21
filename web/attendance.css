@@ -1,0 +1,220 @@
+.att-host,
+.att-dialog {
+  --at-ink: #203833;
+  --at-green: #17674f;
+  --at-rule: #d5e3d9;
+  color: var(--at-ink);
+  font-family:
+    Inter, "Noto Sans CJK SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+.att-panel {
+  background: #fff;
+  border: 1px solid var(--at-rule);
+  border-radius: 18px;
+  padding: clamp(16px, 2.4vw, 26px);
+  text-align: left;
+}
+.att-head,
+.att-actions,
+.att-challenge,
+.att-dhead,
+.att-list button,
+.att-records > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.att-head h3,
+.att-dialog h3 {
+  margin: 2px 0;
+  font-size: 1.3rem;
+}
+.att-eyebrow,
+.att-panel small,
+.att-dialog small {
+  color: #4a6860;
+  font-size: 0.83rem;
+}
+.att-tag {
+  border-radius: 999px;
+  background: #f0f1ed;
+  color: #53605a;
+  padding: 0.3em 0.75em;
+  white-space: nowrap;
+  font-size: 0.82rem;
+}
+.att-live {
+  background: #d9f3db;
+  color: #15583e;
+}
+.att-panel p,
+.att-dialog p {
+  margin: 0.7rem 0;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.att-notice:empty,
+.att-dialog-note:empty {
+  display: none;
+}
+.att-notice,
+.att-dialog-note {
+  color: #884421;
+  font-size: 0.93rem;
+}
+.att-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin: 0.75rem 0;
+}
+.att-btn,
+.att-dhead button,
+.att-list button {
+  font: inherit;
+  border: 1px solid #afc2b6;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--at-ink);
+  padding: 0.63rem 0.9rem;
+  min-height: 44px;
+  cursor: pointer;
+}
+.att-btn:focus-visible,
+.att-dialog :focus-visible {
+  outline: 3px solid #266aaf;
+  outline-offset: 2px;
+}
+.att-btn.att-primary {
+  background: var(--at-green);
+  border-color: var(--at-green);
+  color: #fff;
+  font-weight: 650;
+}
+.att-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.att-challenge {
+  justify-content: flex-start;
+  background: #edf6ed;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  margin: 0.75rem 0;
+  flex-wrap: wrap;
+}
+.att-challenge strong {
+  display: block;
+  letter-spacing: 0.12em;
+  font:
+    700 clamp(26px, 4vw, 40px)/1.2 ui-monospace,
+    monospace;
+}
+.att-challenge small {
+  display: block;
+}
+.att-challenge p {
+  font-size: 0.94rem;
+}
+.att-dialog {
+  background: #fff;
+  width: min(480px, calc(100vw - 24px));
+  max-height: 88dvh;
+  box-sizing: border-box;
+  border: 1px solid #bdd0c1;
+  border-radius: 18px;
+  padding: clamp(16px, 4vw, 28px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-shadow: 0 18px 80px #152f203b;
+}
+.att-dialog::backdrop {
+  background: #12231f88;
+}
+.att-dhead {
+  margin-bottom: 0.8rem;
+}
+.att-dhead button {
+  font-size: 0.82rem;
+}
+.att-dialog label {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.8rem 0;
+  font-weight: 600;
+}
+.att-dialog label.att-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  font-weight: 500;
+}
+.att-dialog label > input:not([type="checkbox"]),
+.att-dialog select {
+  width: 100%;
+  padding: 0.65rem;
+  min-height: 44px;
+  font: inherit;
+  color: inherit;
+  border: 1px solid #b1c6b9;
+  border-radius: 8px;
+  box-sizing: border-box;
+  background: #fff;
+}
+.att-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--at-green);
+  margin-top: 0.14rem;
+  flex-shrink: 0;
+}
+.att-camera img,
+.att-camera video,
+.att-private-photo {
+  display: block;
+  width: 100%;
+  max-height: 38vh;
+  object-fit: contain;
+  background: #eaf1eb;
+  border-radius: 10px;
+}
+.att-dialog [hidden] {
+  display: none !important;
+}
+.att-muted {
+  font-size: 0.9rem;
+  color: #54625b;
+}
+.att-list {
+  display: grid;
+  gap: 0.4rem;
+}
+.att-list button {
+  text-align: left;
+}
+.att-list small {
+  display: block;
+}
+.att-records {
+  border-top: 1px solid var(--at-rule);
+  padding-top: 0.7rem;
+}
+.att-records h4 {
+  margin: 0.4rem 0;
+}
+.att-records > div {
+  flex-wrap: wrap;
+  padding: 0.5rem 0;
+  font-size: 0.93rem;
+}
+.att-records p {
+  width: 100%;
+  margin: 0;
+}
+.att-host button,
+.att-host input,
+.att-dialog button {
+  letter-spacing: normal;
+}

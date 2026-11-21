@@ -14,16 +14,20 @@ const safe = (v) =>
         c
       ],
   );
+let storageNS = "sanwen.",
+  courseId = "",
+  accountId = "",
+  lectureCode = "";
 const read = (k, d) => {
   try {
-    return JSON.parse(localStorage.getItem("sanwen." + k)) ?? d;
+    return JSON.parse(localStorage.getItem(storageNS + k)) ?? d;
   } catch {
     return d;
   }
 };
 const save = (k, v) => {
   try {
-    localStorage.setItem("sanwen." + k, JSON.stringify(v));
+    localStorage.setItem(storageNS + k, JSON.stringify(v));
   } catch {}
 };
 const levels = ["基础理解", "误区辨别", "迁移应用"],
@@ -38,9 +42,9 @@ const btn = (id, cls, name, label) =>
   icon(name) +
   safe(label) +
   "</button>";
-let room = read("room", null),
-  draft = read("draft", null),
-  feedback = read("feedback", false),
+let room = null,
+  draft = null,
+  feedback = false,
   stats = null,
   current = "",
   editIndex = 0,
@@ -55,12 +59,6 @@ let liveModel = null,
   toastTimer,
   busy = false,
   boardRequest = 0;
-const initialView =
-  room && location.hash !== "#setup"
-    ? "board"
-    : location.hash === "#board"
-      ? "board"
-      : "setup";
 async function api(url, { method = "GET", body, token, timeout = 17000 } = {}) {
   const ctrl = new AbortController(),
     timer = setTimeout(() => ctrl.abort(), timeout);
@@ -281,13 +279,13 @@ function renderSetup() {
     '<div class="work-sheet"><div class="sheet-intro"><div><span class="sheet-overline">高校教师工作台</span><h2>编排随堂三问</h2></div><button class="quiet" id="sample">' +
     icon("book", 16) +
     "载入示例</button></div>" +
-    '<section class="config"><form id="topicForm"><label>大学课程<input id="subject" list="courses" required maxlength="60" value="' +
+    '<section class="config"><form id="topicForm"><label>大学课程<input id="subject" list="courses" required maxlength="64" value="' +
     safe(draft.subject) +
     '"><datalist id="courses">' +
     optionList(subjectList, draft.subject) +
     '</datalist></label><label>授课年级<select id="grade">' +
     optionList(grades, draft.grade) +
-    '</select></label><label class="topic-label">知识点<input id="topic" maxlength="100" required value="' +
+    '</select></label><label class="topic-label">知识点<input id="topic" maxlength="240" required value="' +
     safe(draft.topic) +
     '" placeholder="刚讲完的知识点"></label><button class="gen-btn" type="submit" id="generate">' +
     icon("spark", 16) +
@@ -302,7 +300,12 @@ function renderSetup() {
     '<section class="publish-row"><label class="feedback-label"><input type="checkbox" id="feedback" ' +
     (feedback ? "checked" : "") +
     '><span class="switch"></span><span>向学生展示解析</span></label><div><span id="publishNote" class="publish-note" role="status"></span>' +
-    btn("publish", "primary", "play", "确认并开始课堂") +
+    btn(
+      "publish",
+      "primary",
+      "play",
+      lectureCode ? "发布至当前课堂" : "确认并开始课堂",
+    ) +
     "</div></section></div></div>";
   $("#materialFile").onchange = async (event) => {
     const file = event.target.files[0];
@@ -436,7 +439,7 @@ function renderSetup() {
     .forEach((b) => (b.onclick = () => editor(Number(b.dataset.edit))));
   $("#publish").onclick = () => {
     if (busy || setupDirty) return;
-    if (room && stats?.phase !== "closed") {
+    if (!lectureCode && room && (stats?.phase || room.phase) !== "closed") {
       confirmAction(
         "创建另一间课堂？",
         "原课堂继续收集作答。你可以从本机的课堂列表回到原课堂。",
@@ -447,6 +450,16 @@ function renderSetup() {
   };
 }
 function applyDraft(d) {
+  const u = new URL(location.href),
+    ref = u.searchParams.get("slide");
+  if (ref) {
+    sessionStorage.removeItem(
+      "edumind.slide." + accountId + "." + courseId + "." + ref,
+    );
+    u.searchParams.delete("slide");
+    history.replaceState(null, "", u);
+  }
+
   draft = d;
   save("draft", d);
   save("edited", false);
@@ -596,10 +609,20 @@ async function publish() {
   $("#publish").disabled = true;
   $("#publish").textContent = "正在发布…";
   try {
-    room = await api("/api/rooms", {
-      method: "POST",
-      body: { draft, feedback },
-    });
+    if (lectureCode) {
+      await roomAPI("publish", { draft, feedback });
+      room.phase = "open";
+      lectureCode = "";
+      const url = new URL(location.href);
+      url.searchParams.delete("lecture");
+      url.searchParams.set("room", room.code);
+      history.replaceState(null, "", url);
+    } else
+      room = await api("/api/rooms", {
+        method: "POST",
+        body: { draft, feedback, courseId },
+      });
+    room.courseId = courseId;
     rememberRoom();
     stats = null;
     selected = null;
@@ -654,7 +677,12 @@ function choose(s) {
 function boardTop() {
   return workspaceCrumb(
     "诊断大屏",
-    '<button class="quiet" id="rooms">本机课堂</button><button class="quiet" id="expand">' +
+    (room
+      ? '<a class="quiet" href="/#room/' +
+        encodeURIComponent(room.code) +
+        '">课件、答疑与签到</a>'
+      : "") +
+      '<button class="quiet" id="rooms">本机课堂</button><button class="quiet" id="expand">' +
       icon("expand", 15) +
       "投屏模式</button>",
   );
@@ -796,6 +824,10 @@ async function copyJoin(url) {
   }
 }
 function paintBoard(s, force = false) {
+  if (s.code && !s.questions?.length) {
+    location.replace("/#room/" + encodeURIComponent(s.code));
+    return;
+  }
   const sig = JSON.stringify([s, selected]);
   if (!force && sig === lastSig) return;
   lastSig = sig;
@@ -931,6 +963,40 @@ document.addEventListener("fullscreenchange", () => {
 });
 async function start() {
   try {
+    const { user } = await api("/api/auth/me");
+    if (!user || user.role !== "teacher") {
+      location.replace("/?next=/teach");
+      return;
+    }
+    accountId = user.id;
+    const { courses } = await api("/api/courses"),
+      params = new URLSearchParams(location.search);
+    const c = courses.find((x) => x.id === params.get("course")) || courses[0];
+    if (!c) {
+      location.replace("/#courses");
+      return;
+    }
+    courseId = c.id;
+    storageNS = "sanwen." + accountId + "." + courseId + ".";
+    draft = read("draft", null);
+    feedback = read("feedback", false);
+    const lecture = params.get("lecture"),
+      requested = lecture || params.get("room"),
+      saved = read("room", null);
+    const active = c.rooms.find((r) => r.code === (requested || saved?.code));
+    room = active ? { ...active, courseId } : null;
+    if (lecture && (!room || room.phase !== "lecture")) {
+      location.replace(room ? "/#room/" + room.code : "/#courses");
+      return;
+    }
+    lectureCode = lecture || "";
+    const initialView =
+      !lectureCode && (location.hash === "#board" || (requested && room))
+        ? "board"
+        : "setup";
+    const back = document.querySelector("#courseBack");
+    back.textContent = c.name + " / " + c.className;
+    back.title = "返回课程工作台";
     const oldSample =
       draft?.topic === "一元一次方程的移项" &&
       draft.grade === "七年级" &&
@@ -941,6 +1007,30 @@ async function start() {
       save("draft", draft);
     }
     navigate(initialView);
+    const ref = params.get("slide");
+    if (lectureCode && !ref) {
+      $("#subject").value = c.name.slice(0, 64);
+      $("#topic").value = room.topic;
+      $("#material").dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    const key = ref && "edumind.slide." + user.id + "." + courseId + "." + ref;
+    if (key && initialView === "setup") {
+      try {
+        const item = JSON.parse(sessionStorage.getItem(key));
+        if (item) {
+          $("#subject").value = c.name.slice(0, 64);
+          $("#topic").value = item.title;
+          $("#material").value = item.material;
+          $(".course-source").open = true;
+          $("#material").dispatchEvent(new Event("input", { bubbles: true }));
+          notify(
+            "已带入第 " +
+              (item.pageNumber || 1) +
+              " 页的内容，生成后请审核三问",
+          );
+        }
+      } catch {}
+    }
   } catch (e) {
     app.innerHTML =
       '<div class="loading"><h2>暂时无法打开课堂</h2><p>' +

@@ -24,14 +24,18 @@ type courseAnswer struct {
 // Only the explicitly supplied text reaches the model. This transport has no
 // access to rooms, students, answer keys or prior conversations.
 func courseChat(ctx context.Context, base, key, model, system, user string) (string, error) {
+	return courseChatContent(ctx, base, key, model, system, user)
+}
+
+func courseChatContent(ctx context.Context, base, key, model, system string, user any) (string, error) {
 	type message struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
 	}
-	payload := struct {
-		Model    string    `json:"model"`
-		Messages []message `json:"messages"`
-	}{model, []message{{"system", system}, {"user", user}}}
+	payload := map[string]any{
+		"model":    model,
+		"messages": []map[string]any{{"role": "system", "content": system}, {"role": "user", "content": user}},
+	}
 	b, err := json.Marshal(payload)
 	if err != nil {
 		return "", err
