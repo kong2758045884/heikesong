@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#f9f7ef" />
+    <title>随堂三问 · 教师工作台</title>
+    <link rel="icon" href="/brand.svg" />
+    <link rel="stylesheet" href="/teacher.css" />
+    <link rel="stylesheet" href="/studio.css" />
+    <link rel="stylesheet" href="/board-design.css" />
+  </head>
+  <body>
+    <header class="site-head">
+      <div class="head-inner">
+        <a class="brand" href="/" aria-label="随堂三问教师工作台"
+          ><img src="/brand.svg" alt="" /><b>随堂三问</b></a
+        >
+        <nav aria-label="工作区">
+          <button id="setupTab">发起课堂</button
+          ><button id="boardTab">诊断大屏</button>
+        </nav>
+        <div class="head-end">
+          <button id="help" class="quiet"></button><span class="role"></span>
+        </div>
+      </div>
+    </header>
+    <main id="app" aria-live="off">
+      <div class="loading">正在打开教师工作台…</div>
+    </main>
+    <dialog id="dialog"><div id="dialogBody"></div></dialog>
+    <div id="toast" role="status"></div>
+    <script type="module" src="/teacher.js"></script>
+  </body>
+</html>

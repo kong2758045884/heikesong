@@ -1,0 +1,8 @@
+{
+  "name": "suitang-sanwen",
+  "private": true,
+  "type": "module",
+  "scripts": {"build:visuals": "node frontend/build.mjs"},
+  "dependencies": {"react":"19.2.0","react-dom":"19.2.0","three":"0.180.0","@react-three/fiber":"9.4.0","@react-three/drei":"10.7.6","qrcode":"1.5.4"},
+  "devDependencies": {"esbuild":"0.25.12"}
+}
