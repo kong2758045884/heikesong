@@ -10,7 +10,6 @@ import {
   Cpu,
   FlaskConical,
   Lock,
-  Network,
   ShieldCheck,
   Sparkles,
   TrendingUp,
@@ -460,144 +459,171 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Student Hero */}
-      <div className="rounded-2xl border border-sky-300/70 bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 p-6 text-white shadow-lg shadow-sky-500/20 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div className="space-y-4">
+      {/* Clean Mobile Student Greeting Card */}
+      <div className="rounded-2xl bg-sky-600 text-white p-4 space-y-3 shadow-sm">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-white/15">
+            今日学习计划
+          </span>
+          <span className="text-xs text-sky-100 tabular-nums">掌握度 {avgMastery}%</span>
+        </div>
         <div>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 border border-white/30 text-white text-xs font-medium mb-2">
-            <Sparkles className="w-3.5 h-3.5" />
-            学生端 · AI 个性化学习空间
-          </div>
-          <h1 className="text-2xl lg:text-3xl font-bold">
-            欢迎回来，林致远！AI 已为你动态规划今日学习路径
-          </h1>
-          <p className="text-sm text-sky-50 mt-1">
-            系统结合你近 3 次测验与先修节点评估，建议优先攻克 <strong className="underline decoration-amber-300">「递归与调用栈」</strong>（当前掌握度 {nodes.find((n) => n.id === 'recursion')?.studentMastery}%）。
+          <h1 className="text-lg font-bold leading-snug">林致远，继续攻克「递归与调用栈」</h1>
+          <p className="text-xs text-sky-100 mt-1">
+            当前掌握度 {nodes.find((n) => n.id === 'recursion')?.studentMastery}% · 还有 {unresolvedMistakes.length} 道错题待巩固
           </p>
         </div>
-        <div className="flex flex-wrap gap-2.5 shrink-0">
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <button
+            onClick={() => onNavigate('checkin')}
+            className="py-2 px-3 rounded-xl bg-white text-sky-700 text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            <Camera className="w-3.5 h-3.5" /> 去课堂签到
+          </button>
           <button
             onClick={() => onNavigate('virtual-lab')}
-            className="px-4 py-2.5 rounded-xl bg-white hover:bg-sky-50 text-sky-700 text-sm font-bold shadow-md cursor-pointer flex items-center gap-2"
+            className="py-2 px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold border border-white/25 cursor-pointer flex items-center justify-center gap-1.5"
           >
+            <FlaskConical className="w-3.5 h-3.5" /> 3D 实验室
+          </button>
+        </div>
+      </div>
+
+      {/* Compact 2x2 Metrics */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <div className="glass-panel rounded-2xl p-3.5">
+          <div className="text-[11px] text-slate-500">已掌握知识点</div>
+          <div className="text-xl font-bold text-slate-900 tabular-nums mt-0.5">
+            {nodes.filter((n) => n.status === 'mastered').length}
+            <span className="text-xs font-normal text-slate-400"> / {nodes.length}</span>
+          </div>
+        </div>
+        <div className="glass-panel rounded-2xl p-3.5">
+          <div className="text-[11px] text-slate-500">本周有效学习</div>
+          <div className="text-xl font-bold text-sky-600 tabular-nums mt-0.5">6.8 h</div>
+        </div>
+      </div>
+
+      {/* Quick Tools Strip (Virtual Lab + Group Collab) */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <button
+          onClick={() => onNavigate('virtual-lab')}
+          className="glass-panel rounded-2xl p-3.5 text-left hover:border-sky-300 transition-colors cursor-pointer flex items-center gap-3"
+        >
+          <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
             <FlaskConical className="w-4 h-4" />
-            去 3D 实验室攻克递归
-          </button>
-          <button
-            onClick={() => onNavigate('knowledge-graph')}
-            className="px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-sm font-semibold border border-white/35 cursor-pointer flex items-center gap-2"
-          >
-            <Network className="w-4 h-4" />
-            我的 3D 知识图谱
-          </button>
-        </div>
+          </div>
+          <div className="min-w-0">
+            <div className="text-xs font-bold text-slate-800">3D 实验室</div>
+            <div className="text-[11px] text-slate-500 truncate">调用栈·排序</div>
+          </div>
+        </button>
+        <button
+          onClick={() => onNavigate('group-collab')}
+          className="glass-panel rounded-2xl p-3.5 text-left hover:border-sky-300 transition-colors cursor-pointer flex items-center gap-3"
+        >
+          <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
+            <Users className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-xs font-bold text-slate-800">小组协作</div>
+            <div className="text-[11px] text-slate-500 truncate">脑图·分工</div>
+          </div>
+        </button>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-panel rounded-2xl p-4">
-          <div className="text-xs text-slate-500">个人综合掌握度</div>
-          <div className="text-2xl font-bold text-slate-900 mt-1">{avgMastery}%</div>
-          <div className="text-[11px] text-emerald-600 font-medium mt-1">已掌握 {nodes.filter((n) => n.status === 'mastered').length} / {nodes.length} 节点</div>
+      {/* Personalized Learning Path */}
+      <div className="glass-panel rounded-2xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold text-slate-900">AI 个性化学习路径</h2>
+          <span className="text-[11px] text-sky-600 font-semibold tabular-nums">
+            {completedTasks.length}/{learningPath.length}
+          </span>
         </div>
-        <div className="glass-panel rounded-2xl p-4">
-          <div className="text-xs text-slate-500">待攻克错题诊断</div>
-          <div className="text-2xl font-bold text-rose-600 mt-1">{unresolvedMistakes.length} 题</div>
-          <div className="text-[11px] text-slate-500 mt-1">完成后将自动刷新图谱</div>
-        </div>
-        <div className="glass-panel rounded-2xl p-4">
-          <div className="text-xs text-slate-500">本周有效学习时长</div>
-          <div className="text-2xl font-bold text-sky-600 mt-1">6.8 小时</div>
-          <div className="text-[11px] text-sky-600/80 mt-1">超越本班 78% 同学</div>
-        </div>
-        <div className="glass-panel rounded-2xl p-4">
-          <div className="text-xs text-slate-500">学习路径完成率</div>
-          <div className="text-2xl font-bold text-blue-600 mt-1">
-            {Math.round((completedTasks.length / learningPath.length) * 100)}%
-          </div>
-          <div className="text-[11px] text-slate-500 mt-1">动态随学情实时重算</div>
-        </div>
-      </div>
-
-      {/* Dynamic Path + Mastery Snapshot */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 glass-panel rounded-2xl p-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-sky-600" />
-              AI 动态个性化学习路径 (PRD 5.2)
-            </h3>
-            <span className="text-xs text-slate-500">点击卡片直接执行</span>
-          </div>
-          <div className="space-y-2.5">
-            {learningPath.map((item) => {
-              const done = completedTasks.includes(item.id);
-              return (
-                <div
-                  key={item.id}
-                  className={`flex items-center justify-between gap-3 p-3.5 rounded-xl border transition-all ${
-                    done
-                      ? 'bg-emerald-50/80 border-emerald-200'
-                      : 'bg-sky-50/50 border-sky-100 hover:border-sky-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <button
-                      onClick={() => toggleTask(item.id)}
-                      className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 cursor-pointer ${
-                        done
-                          ? 'bg-emerald-500 border-emerald-500 text-white'
-                          : 'border-sky-300 text-sky-600 bg-white hover:border-sky-500'
+        <div className="space-y-2">
+          {learningPath.map((item) => {
+            const done = completedTasks.includes(item.id);
+            return (
+              <div
+                key={item.id}
+                className={`flex items-center justify-between gap-2.5 p-3 rounded-xl border transition-colors ${
+                  done ? 'bg-emerald-50/70 border-emerald-200' : 'bg-sky-50/40 border-sky-100'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <button
+                    onClick={() => toggleTask(item.id)}
+                    className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 cursor-pointer ${
+                      done
+                        ? 'bg-emerald-500 border-emerald-500 text-white'
+                        : 'border-sky-300 text-sky-600 bg-white'
+                    }`}
+                  >
+                    {done ? (
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    ) : (
+                      <span className="text-[10px] font-bold">{item.step}</span>
+                    )}
+                  </button>
+                  <div className="min-w-0">
+                    <div
+                      className={`text-xs font-semibold leading-snug ${
+                        done ? 'line-through text-slate-400' : 'text-slate-800'
                       }`}
                     >
-                      {done ? <CheckCircle2 className="w-4 h-4" /> : <span className="text-[10px] font-bold">{item.step}</span>}
-                    </button>
-                    <div className="min-w-0">
-                      <div className={`text-sm font-semibold ${done ? 'line-through text-slate-400' : 'text-slate-800'}`}>
-                        {item.title}
-                      </div>
-                      <span className="text-[11px] text-sky-600 font-medium">{item.tag}</span>
+                      {item.title}
                     </div>
+                    <div className="text-[10px] text-sky-600 mt-0.5">{item.tag}</div>
                   </div>
-                  <button
-                    onClick={() => onNavigate(item.page)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-sky-600 text-sky-700 hover:text-white border border-sky-200 transition-colors shrink-0 cursor-pointer"
-                  >
-                    前往 →
-                  </button>
+                </div>
+                <button
+                  onClick={() => onNavigate(item.page)}
+                  className="px-2.5 py-1 rounded-lg bg-white border border-sky-200 text-sky-700 text-[11px] font-semibold shrink-0 cursor-pointer"
+                >
+                  去完成
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Weak Nodes Snapshot */}
+      <div className="glass-panel rounded-2xl p-4 space-y-2.5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold text-slate-900">薄弱点优先巩固</h2>
+          <button
+            onClick={() => onNavigate('knowledge-graph')}
+            className="text-[11px] text-sky-600 font-semibold cursor-pointer"
+          >
+            查看图谱 →
+          </button>
+        </div>
+        <div className="space-y-2.5">
+          {nodes
+            .filter((n) => n.studentMastery > 0)
+            .sort((a, b) => a.studentMastery - b.studentMastery)
+            .slice(0, 4)
+            .map((node) => {
+              const meta = STATUS_META[node.status];
+              return (
+                <div key={node.id} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-700 font-medium">{node.label}</span>
+                    <span className={`${meta.color} font-semibold tabular-nums`}>
+                      {node.studentMastery}% · {meta.label}
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-sky-100 overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${node.studentMastery}%`, backgroundColor: meta.hex }}
+                    />
+                  </div>
                 </div>
               );
             })}
-          </div>
-        </div>
-
-        <div className="glass-panel rounded-2xl p-5 space-y-3">
-          <h3 className="font-bold text-slate-800 text-base">核心知识点掌握度</h3>
-          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-            {nodes
-              .filter((n) => n.studentMastery > 0)
-              .sort((a, b) => a.studentMastery - b.studentMastery)
-              .slice(0, 6)
-              .map((node) => {
-                const meta = STATUS_META[node.status];
-                return (
-                  <div key={node.id} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-700 font-semibold">{node.label}</span>
-                      <span className={`${meta.color} font-semibold`}>
-                        {node.studentMastery}% · {meta.label}
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-sky-100 overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${node.studentMastery}%`, backgroundColor: meta.hex }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
         </div>
       </div>
     </div>

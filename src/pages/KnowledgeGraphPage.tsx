@@ -268,46 +268,51 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
   const activeStatus = viewScope === 'class' ? selectedNode.classStatus : selectedNode.status;
   const activeScore = viewScope === 'class' ? selectedNode.classMastery : selectedNode.studentMastery;
   const activeMeta = STATUS_META[activeStatus];
+  const isMobileStudent = role === 'student';
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2.5">
-            <Network className="w-6 h-6 text-sky-600" />
-            3D 互动知识图谱（Python 数据结构星图）
+          <h1 className={`${isMobileStudent ? 'text-lg' : 'text-2xl'} font-bold text-slate-900 flex items-center gap-2`}>
+            <Network className="w-5 h-5 text-sky-600" />
+            3D 知识图谱
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            拖拽旋转 · 滚轮缩放 · 点击任意节点查看多证据掌握度与先修依赖关系（颜色 + 文字双编码）
-          </p>
+          {!isMobileStudent && (
+            <p className="text-sm text-slate-500 mt-1">
+              拖拽旋转 · 滚轮缩放 · 点击任意节点查看多证据掌握度与先修依赖关系（颜色 + 文字双编码）
+            </p>
+          )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-xl bg-sky-50 border border-sky-200 p-1 text-xs">
-            <button
-              onClick={() => setViewScope('student')}
-              className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer ${
-                viewScope === 'student' ? 'bg-sky-600 text-white' : 'text-slate-600 hover:text-sky-700'
-              }`}
-            >
-              个人掌握度视角
-            </button>
-            <button
-              onClick={() => setViewScope('class')}
-              className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer ${
-                viewScope === 'class' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-sky-700'
-              }`}
-            >
-              全班平均掌握度
-            </button>
-          </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {!isMobileStudent && (
+            <div className="inline-flex rounded-xl bg-sky-50 border border-sky-200 p-1 text-xs">
+              <button
+                onClick={() => setViewScope('student')}
+                className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer ${
+                  viewScope === 'student' ? 'bg-sky-600 text-white' : 'text-slate-600 hover:text-sky-700'
+                }`}
+              >
+                个人掌握度视角
+              </button>
+              <button
+                onClick={() => setViewScope('class')}
+                className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer ${
+                  viewScope === 'class' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-sky-700'
+                }`}
+              >
+                全班平均掌握度
+              </button>
+            </div>
+          )}
 
           <button
             onClick={() => setFallback2D(!fallback2D)}
-            className="px-3 py-1.5 rounded-xl bg-white hover:bg-sky-50 border border-sky-200 text-xs font-semibold text-slate-700 cursor-pointer flex items-center gap-1.5"
+            className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-sky-50 border border-sky-200 text-xs font-semibold text-slate-700 cursor-pointer flex items-center gap-1"
           >
             <Layers className="w-3.5 h-3.5 text-sky-600" />
-            {fallback2D ? '切回 3D 星图模式' : '2D 降级兼容视图'}
+            {fallback2D ? '3D 星图' : '2D 列表'}
           </button>
 
           {!fallback2D && (
@@ -315,7 +320,7 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
               onClick={() => {
                 rotationRef.current = { theta: 0.28, phi: 1.32, radius: 13.5 };
               }}
-              className="p-2 rounded-xl bg-white hover:bg-sky-50 border border-sky-200 text-slate-600 cursor-pointer"
+              className="p-1.5 rounded-xl bg-white hover:bg-sky-50 border border-sky-200 text-slate-600 cursor-pointer"
               title="重置视角"
             >
               <RotateCcw className="w-4 h-4" />
@@ -325,28 +330,29 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-3 text-xs">
-        <span className="text-slate-500 font-medium">状态图例（颜色+文字说明）：</span>
+      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
         {(Object.keys(STATUS_META) as (keyof typeof STATUS_META)[]).map((k) => {
           const m = STATUS_META[k];
           return (
             <span
               key={k}
-              className={`px-2.5 py-1 rounded-full border ${m.bg} ${m.border} ${m.color} font-semibold flex items-center gap-1.5`}
+              className={`px-2 py-0.5 rounded-full border ${m.bg} ${m.border} ${m.color} font-semibold flex items-center gap-1`}
             >
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: m.hex }} />
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: m.hex }} />
               {m.label}
             </span>
           );
         })}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
-        {/* 3D / 2D Canvas (Deep Ocean-Blue Space for glowing 3D contrast) */}
-        <div className="xl:col-span-8 relative rounded-2xl border border-sky-300/80 bg-gradient-to-br from-[#08172e] via-[#0c2342] to-[#0a1d38] overflow-hidden min-h-[520px] shadow-xl shadow-sky-900/15">
+      <div className={`grid grid-cols-1 ${isMobileStudent ? '' : 'xl:grid-cols-12'} gap-4`}>
+        {/* 3D / 2D Canvas */}
+        <div
+          className={`${isMobileStudent ? 'min-h-[340px]' : 'xl:col-span-8 min-h-[520px]'} relative rounded-2xl border border-sky-300/80 bg-gradient-to-br from-[#08172e] via-[#0c2342] to-[#0a1d38] overflow-hidden shadow-md`}
+        >
           {!fallback2D ? (
             <>
-              <div ref={mountRef} className="w-full h-[520px] cursor-grab active:cursor-grabbing" />
+              <div ref={mountRef} className={`w-full ${isMobileStudent ? 'h-[340px]' : 'h-[520px]'} cursor-grab active:cursor-grabbing`} />
               <div className="pointer-events-none absolute inset-0 overflow-hidden">
                 {labels.map((lbl) => {
                   if (!lbl.visible) return null;
@@ -417,7 +423,7 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
         </div>
 
         {/* Right Detail Panel */}
-        <div className="xl:col-span-4 glass-panel rounded-2xl p-5 flex flex-col justify-between space-y-5">
+        <div className={`${isMobileStudent ? '' : 'xl:col-span-4'} glass-panel rounded-2xl p-4 sm:p-5 flex flex-col justify-between space-y-4`}>
           <div className="space-y-4">
             <div className="flex items-start justify-between gap-2">
               <div>

@@ -11,7 +11,6 @@ import {
   RefreshCw,
   RotateCcw,
   ShieldCheck,
-  Sparkles,
   Upload,
   UserCheck,
   Video,
@@ -682,364 +681,313 @@ export const SmartCheckInPage: React.FC<SmartCheckInPageProps> = ({
     );
   }
 
-  // STUDENT VIEW
+  // STUDENT VIEW — CLEAN SINGLE-COLUMN MOBILE CHECK-IN
   const liveMatched = liveGesture?.gestureId === selectedGesture.id;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="space-y-4">
+      {/* Compact Mobile Header */}
+      <div className="flex items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2.5">
-            <Camera className="w-6 h-6 text-sky-600" />
-            AI 智能课前签到（真实 MediaPipe 手势核验）
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            开启摄像头或上传照片，浏览器本地运行 <strong>MediaPipe 21 关键点模型</strong> 实时判定手势，摆错手势或未举手将被真实拦截！
-          </p>
+          <h1 className="text-lg font-bold text-slate-900">AI 手势签到</h1>
+          <p className="text-xs text-slate-500">请摆出指定手势并拍照验证</p>
         </div>
+        <span
+          className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border flex items-center gap-1 ${
+            modelStatus === 'ready'
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+              : 'bg-sky-50 text-sky-700 border-sky-200'
+          }`}
+        >
+          <Cpu className="w-3 h-3" />
+          {modelStatus === 'ready' ? '手势模型就绪' : '加载中...'}
+        </span>
+      </div>
 
-        <div className="flex items-center gap-2">
-          <span
-            className={`px-2.5 py-1 rounded-full text-xs font-semibold border flex items-center gap-1.5 ${
-              modelStatus === 'ready'
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                : modelStatus === 'loading'
-                ? 'bg-sky-50 text-sky-700 border-sky-200'
-                : 'bg-amber-50 text-amber-700 border-amber-200'
+      {/* Gesture Selector (4 crisp thumb-friendly pills) */}
+      <div className="grid grid-cols-2 gap-2">
+        {GESTURES.map((g) => (
+          <button
+            key={g.id}
+            onClick={() => {
+              setSelectedGesture(g);
+              setVerifyResult('idle');
+              setFailMessage('');
+            }}
+            className={`py-2 px-3 rounded-xl text-xs font-semibold border cursor-pointer transition-colors text-left ${
+              selectedGesture.id === g.id
+                ? 'bg-sky-600 border-sky-600 text-white'
+                : 'bg-white border-sky-200 text-slate-700 hover:border-sky-400'
             }`}
           >
-            <Cpu className="w-3.5 h-3.5" />
-            {modelStatus === 'ready'
-              ? 'MediaPipe 手势模型已就绪'
-              : modelStatus === 'loading'
-              ? '正在加载手势识别模型...'
-              : '模型加载降级'}
-          </span>
-          <button
-            onClick={() => setAltModeOpen(!altModeOpen)}
-            className="px-3 py-1.5 rounded-xl text-xs font-medium bg-white border border-sky-200 text-slate-600 hover:text-sky-700 cursor-pointer"
-          >
-            替代口令签到
+            {g.label}
           </button>
-        </div>
+        ))}
       </div>
 
-      {/* Quick Gesture Switcher so user can test all 4 gestures easily! */}
-      <div className="glass-panel rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3">
-        <div className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-          <Hand className="w-4 h-4 text-sky-600" />
-          当前课堂指定手势（可切换测试真机识别）：
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {GESTURES.map((g) => (
+      {/* Camera Card */}
+      <div className="glass-panel rounded-2xl p-3.5 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          {!cameraActive ? (
             <button
-              key={g.id}
-              onClick={() => {
-                setSelectedGesture(g);
-                setVerifyResult('idle');
-                setFailMessage('');
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer transition-all ${
-                selectedGesture.id === g.id
-                  ? 'bg-sky-600 border-sky-500 text-white shadow-sm'
-                  : 'bg-white border-sky-200 text-slate-600 hover:border-sky-400'
-              }`}
+              onClick={startRealCamera}
+              className="flex-1 py-2 px-3 rounded-xl text-xs font-semibold bg-sky-600 hover:bg-sky-700 text-white flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              {g.label}
+              <Video className="w-3.5 h-3.5" /> 开启摄像头
             </button>
-          ))}
-        </div>
-      </div>
-
-      {altModeOpen && (
-        <div className="glass-panel rounded-2xl p-4 flex flex-wrap items-center gap-3 border-sky-300">
-          <span className="text-xs text-slate-700 font-medium">替代签到（课堂动态口令）：</span>
-          <input
-            type="text"
-            placeholder="输入教师大屏 4 位口令（如 8848）"
-            value={altCode}
-            onChange={(e) => setAltCode(e.target.value)}
-            className="px-3 py-1.5 rounded-lg bg-white border border-sky-200 text-xs text-slate-800 focus:outline-none focus:border-sky-500"
-          />
-          <button
-            onClick={handleAltSubmit}
-            className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold cursor-pointer"
-          >
-            提交口令签到
-          </button>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-        {/* Viewfinder */}
-        <div className="lg:col-span-3 glass-panel rounded-2xl p-4 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-semibold text-slate-700 flex items-center gap-2">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  capturedPhoto ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'
-                }`}
-              />
-              {capturedPhoto
-                ? '已定格实拍照片（含 21 点手部骨骼标注）'
-                : cameraActive
-                ? '实时摄像头 + MediaPipe 21 点骨骼追踪中'
-                : '模拟课堂预览（点击右侧开启真实摄像头测手势）'}
-            </span>
-
-            <div className="flex flex-wrap gap-2">
-              {!cameraActive ? (
-                <button
-                  onClick={startRealCamera}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 hover:bg-sky-500 text-white flex items-center gap-1 cursor-pointer shadow-sm"
-                >
-                  <Video className="w-3.5 h-3.5" /> 开启真实摄像头识别
-                </button>
-              ) : (
-                <button
-                  onClick={stopCamera}
-                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1 cursor-pointer"
-                >
-                  <VideoOff className="w-3.5 h-3.5 text-rose-500" /> 关闭摄像头
-                </button>
-              )}
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                capture="user"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white hover:bg-sky-50 text-sky-700 border border-sky-200 flex items-center gap-1 cursor-pointer"
-              >
-                <Upload className="w-3.5 h-3.5" /> 本地拍照 / 上传
-              </button>
-            </div>
-          </div>
-
-          {cameraError && (
-            <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              {cameraError}
-            </div>
+          ) : (
+            <button
+              onClick={stopCamera}
+              className="flex-1 py-2 px-3 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <VideoOff className="w-3.5 h-3.5 text-rose-500" /> 关闭摄像头
+            </button>
           )}
 
-          {/* Viewport */}
-          <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-900 border-2 border-sky-200 shadow-inner">
-            {capturedPhoto ? (
-              <div className="relative w-full h-full">
-                <img
-                  src={capturedPhoto}
-                  alt="我拍摄的签到照片"
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute top-3 right-3 flex gap-2">
-                  <button
-                    onClick={() => setLightboxPhoto(capturedPhoto)}
-                    className="px-2.5 py-1 rounded-lg bg-slate-900/75 hover:bg-slate-900 text-white text-xs font-medium flex items-center gap-1 cursor-pointer backdrop-blur-md"
-                  >
-                    <ZoomIn className="w-3.5 h-3.5" /> 放大查看
-                  </button>
-                  <button
-                    onClick={() => {
-                      setCapturedPhoto(null);
-                      setCapturedGesture(null);
-                      setVerifyResult('idle');
-                      setVerifyStep(0);
-                      setFailMessage('');
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-sky-600/90 hover:bg-sky-500 text-white text-xs font-medium flex items-center gap-1 cursor-pointer backdrop-blur-md"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" /> 重拍
-                  </button>
-                </div>
-                <div className="absolute bottom-3 left-3 px-3 py-1 rounded-lg bg-slate-950/80 text-white text-xs font-semibold flex items-center gap-1.5 shadow">
-                  <ImageIcon className="w-3.5 h-3.5 text-sky-400" />
-                  {capturedGesture
-                    ? `实测结果：${capturedGesture.label}（${
-                        capturedGesture.gestureId === selectedGesture.id ? '匹配 ✓' : '不匹配 ✗'
-                      }）`
-                    : '已定格照片'}
-                </div>
-              </div>
-            ) : cameraActive ? (
-              <>
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover -scale-x-100"
-                />
-                {/* Real-time 21-point Hand Skeleton Overlay */}
-                <canvas
-                  ref={overlayCanvasRef}
-                  className="pointer-events-none absolute inset-0 w-full h-full object-cover"
-                />
-                {/* Live MediaPipe HUD */}
-                <div className="pointer-events-none absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2">
-                  <div
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold backdrop-blur-md border shadow-lg ${
-                      liveMatched
-                        ? 'bg-emerald-600/85 border-emerald-300 text-white'
-                        : liveGesture && liveGesture.gestureId !== 'none'
-                        ? 'bg-rose-600/85 border-rose-300 text-white'
-                        : 'bg-slate-950/75 border-sky-400/50 text-sky-100'
-                    }`}
-                  >
-                    🤖 实时识别：{liveGesture ? liveGesture.label : '检测中...'}
-                    {liveMatched
-                      ? ' ✓ 匹配成功，可以拍照！'
-                      : liveGesture && liveGesture.gestureId !== 'none'
-                      ? ` ✗ 需要「${selectedGesture.label}」`
-                      : `（请举手摆出 ${selectedGesture.label}）`}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-slate-900 via-sky-950 to-blue-950 relative px-5 pt-12 pb-14 flex flex-col justify-between">
-                <div className="w-2/3 h-24 rounded-lg bg-emerald-950/90 border-2 border-amber-700/60 p-3 shadow-inner">
-                  <div className="text-[10px] text-emerald-300/90 font-mono">
-                    曲阜师范大学 · 第3章 递归与调用栈
-                  </div>
-                  <div className="text-xs text-white/95 font-mono mt-1">
-                    def factorial(n): return 1 if n&lt;=1 else n*factorial(n-1)
-                  </div>
-                </div>
-                <div className="flex items-end justify-between">
-                  <div className="px-3 py-1.5 rounded-lg bg-sky-500/25 border border-sky-400/50 text-xs text-sky-100">
-                    👨‍🏫 讲台区域：张教授
-                  </div>
-                  <div className="px-3 py-2 rounded-xl bg-cyan-500/25 border border-cyan-300/60 text-sm text-cyan-100 font-semibold">
-                    🧑‍🎓 模拟演示画面 + {selectedGesture.label}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {verifying && (
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-sky-400/40 to-transparent animate-scanline" />
-            )}
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            {!capturedPhoto && (
-              <button
-                disabled={verifying}
-                onClick={handleTakePhotoOnly}
-                className="py-2.5 px-4 rounded-xl bg-white hover:bg-sky-50 text-sky-700 border border-sky-300 text-xs font-bold cursor-pointer flex items-center gap-1.5"
-              >
-                <Camera className="w-4 h-4" /> 先拍照看识别框
-              </button>
-            )}
-            <button
-              disabled={verifying}
-              onClick={() => runVerification(false)}
-              className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 disabled:opacity-50 text-white text-sm font-semibold shadow-md shadow-sky-500/25 cursor-pointer flex items-center justify-center gap-2"
-            >
-              {verifying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {verifying ? 'MediaPipe 真实手势核验中...' : capturedPhoto ? '提交当前照片进行 AI 签到' : '一键拍照并提交 AI 签到'}
-            </button>
-            <button
-              disabled={verifying}
-              onClick={() => runVerification(true)}
-              className="py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-xs font-semibold cursor-pointer"
-            >
-              申请人工复核
-            </button>
-          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="user"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex-1 py-2 px-3 rounded-xl text-xs font-semibold bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <Upload className="w-3.5 h-3.5" /> 拍照 / 上传
+          </button>
         </div>
 
-        {/* 6-Dimension Checklist */}
-        <div className="lg:col-span-2 glass-panel rounded-2xl p-5 flex flex-col justify-between space-y-4">
-          <div className="space-y-3">
-            <h3 className="font-bold text-slate-800 text-sm">6 维 AI 联合验证流水线 (PRD 3.3.1)</h3>
-            <div className="space-y-2">
-              {sixChecks.map((item) => {
-                const done = verifyStep >= item.key;
-                const isGestureFail = verifyResult === 'gesture-failed' && item.key === 4;
-                const isAmbiguous = verifyResult === 'review' && item.key === 3;
-                return (
-                  <div
-                    key={item.key}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all ${
-                      isGestureFail
-                        ? 'bg-rose-50 border-rose-300 text-rose-900'
-                        : isAmbiguous
-                        ? 'bg-amber-50 border-amber-300 text-amber-900'
-                        : done
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                        : 'bg-sky-50/50 border-sky-100 text-slate-600'
-                    }`}
-                  >
-                    <div>
-                      <div className="font-semibold">{item.label}</div>
-                      <div className="text-[10px] opacity-75">{item.desc}</div>
-                    </div>
-                    {isGestureFail ? (
-                      <XCircle className="w-4 h-4 text-rose-500 shrink-0" />
-                    ) : isAmbiguous ? (
-                      <XCircle className="w-4 h-4 text-amber-500 shrink-0" />
-                    ) : done ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                    ) : (
-                      <span className="w-4 h-4 rounded-full border border-sky-300 shrink-0" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+        {cameraError && (
+          <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            {cameraError}
           </div>
+        )}
 
-          {verifyResult === 'gesture-failed' && (
-            <div className="rounded-xl bg-rose-50 border border-rose-300 p-3.5 text-xs text-rose-900 space-y-2">
-              <div className="font-bold text-sm text-rose-700 flex items-center gap-1.5">
-                <XCircle className="w-4 h-4" /> 手势验证未通过（已被拦截）
-              </div>
-              <p className="leading-relaxed">{failMessage}</p>
-              <div className="flex gap-2 pt-1">
+        {/* Viewport */}
+        <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-slate-900 border border-sky-200">
+          {capturedPhoto ? (
+            <div className="relative w-full h-full">
+              <img src={capturedPhoto} alt="我拍摄的签到照片" className="w-full h-full object-cover" />
+              <div className="absolute top-2.5 right-2.5 flex gap-1.5">
+                <button
+                  onClick={() => setLightboxPhoto(capturedPhoto)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-900/75 text-white text-[11px] font-medium flex items-center gap-1 cursor-pointer"
+                >
+                  <ZoomIn className="w-3 h-3" /> 大图
+                </button>
                 <button
                   onClick={() => {
                     setCapturedPhoto(null);
                     setCapturedGesture(null);
                     setVerifyResult('idle');
                     setVerifyStep(0);
+                    setFailMessage('');
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg bg-sky-600 text-white text-[11px] font-medium flex items-center gap-1 cursor-pointer"
                 >
-                  重新摆手势拍摄
+                  <RotateCcw className="w-3 h-3" /> 重拍
                 </button>
-                <button
-                  onClick={() => runVerification(true)}
-                  className="px-3 py-1.5 rounded-lg bg-white hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold cursor-pointer"
+              </div>
+              <div className="absolute bottom-2.5 left-2.5 right-2.5 px-2.5 py-1.5 rounded-lg bg-slate-950/80 text-white text-[11px] font-medium flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                <span className="truncate">
+                  {capturedGesture
+                    ? `实测：${capturedGesture.label}（${
+                        capturedGesture.gestureId === selectedGesture.id ? '匹配 ✓' : '不匹配 ✗'
+                      }）`
+                    : '已定格照片，点击下方提交'}
+                </span>
+              </div>
+            </div>
+          ) : cameraActive ? (
+            <>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover -scale-x-100"
+              />
+              <canvas
+                ref={overlayCanvasRef}
+                className="pointer-events-none absolute inset-0 w-full h-full object-cover"
+              />
+              <div className="pointer-events-none absolute bottom-2.5 left-2.5 right-2.5">
+                <div
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold backdrop-blur-md border ${
+                    liveMatched
+                      ? 'bg-emerald-600/90 border-emerald-300 text-white'
+                      : liveGesture && liveGesture.gestureId !== 'none'
+                      ? 'bg-rose-600/90 border-rose-300 text-white'
+                      : 'bg-slate-950/75 border-sky-400/50 text-sky-100'
+                  }`}
                 >
-                  转教师人工复核
-                </button>
+                  识别：{liveGesture ? liveGesture.label : '检测中...'}
+                  {liveMatched
+                    ? ' · 匹配 ✓'
+                    : liveGesture && liveGesture.gestureId !== 'none'
+                    ? ` · 需 ${selectedGesture.label}`
+                    : ''}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-slate-900 to-sky-950 p-4 flex flex-col justify-between">
+              <div className="rounded-lg bg-emerald-950/90 border border-amber-700/60 p-2.5">
+                <div className="text-[10px] text-emerald-300 font-mono">第3章 递归与调用栈</div>
+                <div className="text-[11px] text-white font-mono mt-0.5 truncate">
+                  def factorial(n): return 1 if n&lt;=1 else n*factorial(n-1)
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-xs text-sky-100">
+                <span className="px-2.5 py-1 rounded-lg bg-white/10">模拟课堂画面</span>
+                <span className="px-2.5 py-1 rounded-lg bg-sky-500/30 font-semibold">
+                  目标：{selectedGesture.label}
+                </span>
               </div>
             </div>
           )}
 
-          {verifyResult === 'success' && (
-            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3.5 text-xs text-emerald-800 space-y-1.5">
-              <div className="font-bold text-sm text-emerald-700">🎉 签到成功！手势匹配通过</div>
-              <p>
-                {capturedGesture
-                  ? `MediaPipe 实测识别为「${capturedGesture.label}」（置信度 ${capturedGesture.confidence}%），已同步照片至教师端。`
-                  : '所有 6 项验证通过，考勤记录已同步至教师端。'}
-              </p>
-            </div>
+          {verifying && (
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-sky-400/40 to-transparent animate-scanline" />
           )}
+        </div>
 
-          {verifyResult === 'review' && (
-            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-900">
-              <div className="font-bold text-sm text-amber-700 mb-1">⚠️ 已转入教师人工复核</div>
-              已附带你的实拍照片推送至教师端等待一键确认，系统绝不因单次低置信度直接判定缺勤。
-            </div>
+        {/* Big Primary Action Button */}
+        <button
+          disabled={verifying}
+          onClick={() => runVerification(false)}
+          className="w-full py-3 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-sm font-bold cursor-pointer flex items-center justify-center gap-2"
+        >
+          {verifying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+          {verifying ? '正在进行 AI 手势核验...' : capturedPhoto ? '提交当前照片签到' : '拍照并提交 AI 签到'}
+        </button>
+
+        <div className="flex items-center justify-between gap-2 text-xs">
+          {!capturedPhoto && (
+            <button
+              disabled={verifying}
+              onClick={handleTakePhotoOnly}
+              className="text-sky-700 font-semibold cursor-pointer"
+            >
+              先拍一张预览
+            </button>
           )}
+          <button
+            onClick={() => setAltModeOpen(!altModeOpen)}
+            className="text-slate-500 hover:text-sky-700 cursor-pointer ml-auto"
+          >
+            不便拍摄？口令签到
+          </button>
+        </div>
+      </div>
+
+      {altModeOpen && (
+        <div className="glass-panel rounded-2xl p-3.5 flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="输入教师大屏 4 位口令（如 8848）"
+            value={altCode}
+            onChange={(e) => setAltCode(e.target.value)}
+            className="flex-1 px-3 py-2 rounded-xl bg-slate-50 border border-sky-200 text-xs text-slate-800 focus:outline-none focus:border-sky-500"
+          />
+          <button
+            onClick={handleAltSubmit}
+            className="px-3.5 py-2 rounded-xl bg-sky-600 text-white text-xs font-semibold cursor-pointer shrink-0"
+          >
+            提交
+          </button>
+        </div>
+      )}
+
+      {/* Result Banner */}
+      {verifyResult === 'gesture-failed' && (
+        <div className="rounded-2xl bg-rose-50 border border-rose-200 p-4 text-xs text-rose-900 space-y-2.5">
+          <div className="font-bold text-sm text-rose-700 flex items-center gap-1.5">
+            <XCircle className="w-4 h-4" /> 手势验证未通过
+          </div>
+          <p className="leading-relaxed">{failMessage}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setCapturedPhoto(null);
+                setCapturedGesture(null);
+                setVerifyResult('idle');
+                setVerifyStep(0);
+              }}
+              className="flex-1 py-2 rounded-xl bg-rose-600 text-white font-semibold cursor-pointer"
+            >
+              重新拍摄
+            </button>
+            <button
+              onClick={() => runVerification(true)}
+              className="flex-1 py-2 rounded-xl bg-white text-rose-700 border border-rose-200 font-semibold cursor-pointer"
+            >
+              转人工复核
+            </button>
+          </div>
+        </div>
+      )}
+
+      {verifyResult === 'success' && (
+        <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-xs text-emerald-800">
+          <div className="font-bold text-sm text-emerald-700 mb-1">签到成功，已同步教师端</div>
+          <p>
+            {capturedGesture
+              ? `实测识别为「${capturedGesture.label}」（置信度 ${capturedGesture.confidence}%）。`
+              : '所有 6 项校验均已通过。'}
+          </p>
+        </div>
+      )}
+
+      {verifyResult === 'review' && (
+        <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 text-xs text-amber-900">
+          <div className="font-bold text-sm text-amber-700 mb-1">已转教师人工复核</div>
+          实拍照片已提交给授课教师确认，不会直接判定缺勤。
+        </div>
+      )}
+
+      {/* Compact 6-Check Status Grid */}
+      <div className="glass-panel rounded-2xl p-3.5 space-y-2.5">
+        <div className="text-xs font-bold text-slate-700">6 维安全校验状态</div>
+        <div className="grid grid-cols-2 gap-2">
+          {sixChecks.map((item) => {
+            const done = verifyStep >= item.key;
+            const isGestureFail = verifyResult === 'gesture-failed' && item.key === 4;
+            const isAmbiguous = verifyResult === 'review' && item.key === 3;
+            return (
+              <div
+                key={item.key}
+                className={`px-2.5 py-2 rounded-xl border text-[11px] font-medium flex items-center justify-between gap-1 ${
+                  isGestureFail
+                    ? 'bg-rose-50 border-rose-200 text-rose-800'
+                    : isAmbiguous
+                    ? 'bg-amber-50 border-amber-200 text-amber-800'
+                    : done
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    : 'bg-sky-50/40 border-sky-100 text-slate-500'
+                }`}
+              >
+                <span className="truncate">{item.label.split(' ')[0]}</span>
+                {isGestureFail ? (
+                  <XCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                ) : isAmbiguous ? (
+                  <XCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                ) : done ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                ) : (
+                  <span className="w-3 h-3 rounded-full border border-sky-300 shrink-0" />
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div className="text-[10px] text-slate-400 flex items-center gap-1 pt-0.5">
+          <ShieldCheck className="w-3 h-3 text-emerald-600 shrink-0" />
+          影像仅用于当堂考勤，24 小时自动销毁
         </div>
       </div>
 
@@ -1047,19 +995,19 @@ export const SmartCheckInPage: React.FC<SmartCheckInPageProps> = ({
         createPortal(
           <div
             onClick={() => setLightboxPhoto(null)}
-            className="fixed inset-0 z-[100] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-6"
+            className="fixed inset-0 z-[100] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4"
           >
-            <div className="relative max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="relative max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={() => setLightboxPhoto(null)}
-                className="absolute -top-11 right-0 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                className="absolute -top-10 right-0 px-3 py-1.5 rounded-lg bg-white/15 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer"
               >
-                <X className="w-4 h-4" /> 关闭预览
+                <X className="w-4 h-4" /> 关闭
               </button>
               <img
                 src={lightboxPhoto}
                 alt="签到照片大图"
-                className="w-full rounded-2xl border-2 border-sky-400/50 shadow-2xl"
+                className="w-full rounded-2xl border border-sky-400/50 shadow-2xl"
               />
             </div>
           </div>,

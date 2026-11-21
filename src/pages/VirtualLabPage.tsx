@@ -77,7 +77,7 @@ function buildFactorialSteps(n: number): RecursionStep[] {
   return steps;
 }
 
-export const VirtualLabPage: React.FC = () => {
+export const VirtualLabPage: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) => {
   const [activeLab, setActiveLab] = useState<'recursion' | 'sorting' | 'tree'>('recursion');
 
   const [nVal, setNVal] = useState(4);
@@ -255,8 +255,8 @@ export const VirtualLabPage: React.FC = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
-        <div className="xl:col-span-8 glass-panel rounded-2xl p-6 min-h-[470px] flex flex-col justify-between">
+      <div className={`grid grid-cols-1 ${isMobile ? '' : 'xl:grid-cols-12'} gap-4`}>
+        <div className={`${isMobile ? '' : 'xl:col-span-8'} glass-panel rounded-2xl p-4 sm:p-6 min-h-[420px] flex flex-col justify-between`}>
           {activeLab === 'recursion' && (
             <div className="space-y-5 flex-1 flex flex-col justify-between">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -553,7 +553,7 @@ export const VirtualLabPage: React.FC = () => {
         </div>
 
         {/* Right Sidebar */}
-        <div className="xl:col-span-4 glass-panel rounded-2xl p-5 flex flex-col justify-between space-y-4">
+        <div className={`${isMobile ? '' : 'xl:col-span-4'} glass-panel rounded-2xl p-4 sm:p-5 flex flex-col justify-between space-y-4`}>
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-sky-100 border border-sky-200 flex items-center justify-center">

@@ -128,7 +128,7 @@ export function App() {
           onNavigate={setCurrentPage}
         />
       )}
-      {currentPage === 'virtual-lab' && <VirtualLabPage />}
+      {currentPage === 'virtual-lab' && <VirtualLabPage isMobile={role === 'student'} />}
       {currentPage === 'diagnostics' && (
         <DiagnosticsAndAnalyticsPage
           role={role}
@@ -136,7 +136,7 @@ export function App() {
           onResolveMistake={handleResolveMistake}
         />
       )}
-      {currentPage === 'group-collab' && <GroupCollabPage />}
+      {currentPage === 'group-collab' && <GroupCollabPage isMobile={role === 'student'} />}
     </Layout>
   );
 }

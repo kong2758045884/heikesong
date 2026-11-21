@@ -3,7 +3,7 @@ import { Bot, CheckCircle2, Plus, Sparkles, Users } from 'lucide-react';
 import { INITIAL_GROUP_TASKS } from '../data/mockData';
 import type { GroupTask } from '../types';
 
-export const GroupCollabPage: React.FC = () => {
+export const GroupCollabPage: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) => {
   const [tasks, setTasks] = useState<GroupTask[]>(INITIAL_GROUP_TASKS);
   const [mindNodes, setMindNodes] = useState<string[]>([
     '核心主题：递归与栈的等价性',
@@ -66,8 +66,8 @@ export const GroupCollabPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <div className="lg:col-span-6 glass-panel rounded-2xl p-5 space-y-4">
+      <div className={`grid grid-cols-1 ${isMobile ? '' : 'lg:grid-cols-12'} gap-4`}>
+        <div className={`${isMobile ? '' : 'lg:col-span-6'} glass-panel rounded-2xl p-4 sm:p-5 space-y-4`}>
           <h3 className="text-sm font-bold text-slate-800">小组共享思维导图白板（多人实时协作）</h3>
           <div className="rounded-xl bg-sky-50/60 border border-sky-200 p-4 space-y-2.5 min-h-[240px]">
             {mindNodes.map((node, idx) => (
@@ -102,7 +102,7 @@ export const GroupCollabPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="lg:col-span-6 glass-panel rounded-2xl p-5 space-y-4">
+        <div className={`${isMobile ? '' : 'lg:col-span-6'} glass-panel rounded-2xl p-4 sm:p-5 space-y-4`}>
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-800">任务分工与透明贡献度</h3>
             <span className="text-[11px] text-slate-500">点击状态标签切换进度</span>

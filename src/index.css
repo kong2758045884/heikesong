@@ -3,37 +3,40 @@
 @layer base {
   body {
     font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: linear-gradient(135deg, #ebf5ff 0%, #f5faff 48%, #e4f1ff 100%);
+    background-color: #f2f7fd;
     color: #0f172a;
+    -webkit-font-smoothing: antialiased;
   }
   code, pre, .font-mono {
     font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   }
 }
 
-/* Custom sleek scrollbars */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Subtle clean scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(56, 189, 248, 0.35);
+  background: rgba(148, 163, 184, 0.35);
   border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(14, 165, 233, 0.55);
+  background: rgba(100, 116, 139, 0.55);
 }
 
-/* Airy Light Sky-Blue Glassmorphism */
+/* Unslopped Clean Elevated Card Surface */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.86);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border: 1px solid rgba(186, 230, 253, 0.85);
-  box-shadow: 0 10px 30px -12px rgba(14, 165, 233, 0.14), 0 2px 8px -2px rgba(15, 23, 42, 0.04);
+  background: #ffffff;
+  border: 1px solid #dbe9f8;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03), 0 6px 20px -12px rgba(14, 165, 233, 0.12);
 }
 
 /* Reduce motion support (PRD 11.1) */

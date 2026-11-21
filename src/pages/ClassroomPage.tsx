@@ -174,21 +174,24 @@ export const ClassroomPage: React.FC<ClassroomPageProps> = ({ role }) => {
   };
 
   const totalVotes = quiz.stats.reduce((a, b) => a + b, 0);
+  const isMobileStudent = role === 'student';
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-xl lg:text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <h1 className={`${isMobileStudent ? 'text-lg' : 'text-xl lg:text-2xl'} font-bold text-slate-900 flex items-center gap-2`}>
             <BookOpen className="w-5 h-5 text-sky-600" />
-            AI 实时智慧课堂
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              LIVE · 40人在线
+            AI 实时课堂
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              LIVE
             </span>
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            课件上下文 AI 副驾驶 · 中英双语术语字幕 · AI 实时出题与课堂 BOSS 协作 · 自动笔记生成
-          </p>
+          {!isMobileStudent && (
+            <p className="text-xs text-slate-500 mt-0.5">
+              课件上下文 AI 副驾驶 · 中英双语术语字幕 · AI 实时出题与课堂 BOSS 协作 · 自动笔记生成
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -197,26 +200,26 @@ export const ClassroomPage: React.FC<ClassroomPageProps> = ({ role }) => {
               onClick={handleRandomPick}
               className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-semibold cursor-pointer"
             >
-              🎲 随机点名 {pickedStudent ? `(${pickedStudent})` : ''}
+              随机点名 {pickedStudent ? `(${pickedStudent})` : ''}
             </button>
           )}
           <button
             onClick={() => setShowBilingual(!showBilingual)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer flex items-center gap-1.5 ${
+            className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer flex items-center gap-1 ${
               showBilingual
                 ? 'bg-sky-50 text-sky-700 border-sky-300'
                 : 'bg-white text-slate-500 border-sky-200'
             }`}
           >
             <Languages className="w-3.5 h-3.5" />
-            {showBilingual ? '双语字幕已开' : '仅中文字幕'}
+            {showBilingual ? '双语字幕' : '仅中文'}
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+      <div className={`grid grid-cols-1 ${isMobileStudent ? '' : 'xl:grid-cols-12'} gap-4`}>
         {/* Left 7 cols */}
-        <div className="xl:col-span-7 space-y-4">
+        <div className={`${isMobileStudent ? '' : 'xl:col-span-7'} space-y-4`}>
           <div className="glass-panel rounded-2xl overflow-hidden flex flex-col">
             <div className="px-5 py-3 bg-sky-50/90 border-b border-sky-200/80 flex items-center justify-between">
               <span className="text-xs font-bold text-sky-800">
@@ -357,7 +360,7 @@ export const ClassroomPage: React.FC<ClassroomPageProps> = ({ role }) => {
         </div>
 
         {/* Right 5 cols */}
-        <div className="xl:col-span-5 glass-panel rounded-2xl flex flex-col overflow-hidden min-h-[600px]">
+        <div className={`${isMobileStudent ? '' : 'xl:col-span-5'} glass-panel rounded-2xl flex flex-col overflow-hidden ${isMobileStudent ? 'min-h-[460px]' : 'min-h-[600px]'}`}>
           <div className="grid grid-cols-3 border-b border-sky-200/80 bg-sky-50/70 p-1.5 gap-1">
             {[
               { id: 'copilot', label: 'AI 副驾驶', icon: Bot },

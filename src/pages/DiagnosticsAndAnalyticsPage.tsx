@@ -103,35 +103,37 @@ export const DiagnosticsAndAnalyticsPage: React.FC<DiagnosticsAndAnalyticsPagePr
     URL.revokeObjectURL(url);
   };
 
+  const isMobileStudent = role === 'student';
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2.5">
-            <BrainCircuit className="w-6 h-6 text-sky-600" />
+          <h1 className={`${isMobileStudent ? 'text-lg' : 'text-2xl'} font-bold text-slate-900 flex items-center gap-2`}>
+            <BrainCircuit className="w-5 h-5 text-sky-600" />
             {role === 'teacher'
               ? 'AI 作业诊断、分层巩固与教室投屏讲评中心'
-              : 'AI 错题四维诊断与举一反三巩固台'}
+              : 'AI 错题诊断与变式巩固'}
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            {role === 'teacher'
-              ? '产出直接用于课堂与课后：脱敏错例大屏对比 + 教师风格评语 + A/B/C 分层巩固作业单'
-              : '完整闭环：错误答案 → 四维错因诊断 → 知识补充 → 变式训练验证 → 实时点亮 3D 知识图谱'}
-          </p>
+          {!isMobileStudent && (
+            <p className="text-sm text-slate-500 mt-1">
+              产出直接用于课堂与课后：脱敏错例大屏对比 + 教师风格评语 + A/B/C 分层巩固作业单
+            </p>
+          )}
         </div>
 
         {role === 'teacher' && (
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setProjectionOpen(true)}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white text-xs font-semibold shadow-md shadow-sky-500/25 cursor-pointer flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold cursor-pointer flex items-center gap-1.5"
             >
               <Maximize2 className="w-4 h-4" />
               进入教室脱敏投屏讲评模式
             </button>
             <button
               onClick={handleExportLayered}
-              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold cursor-pointer flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold cursor-pointer flex items-center gap-1.5"
             >
               <Download className="w-4 h-4" /> 导出 A/B/C 分层作业
             </button>
@@ -139,8 +141,8 @@ export const DiagnosticsAndAnalyticsPage: React.FC<DiagnosticsAndAnalyticsPagePr
         )}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
-        <div className="xl:col-span-4 space-y-3">
+      <div className={`grid grid-cols-1 ${isMobileStudent ? '' : 'xl:grid-cols-12'} gap-4`}>
+        <div className={`${isMobileStudent ? '' : 'xl:col-span-4'} space-y-2.5`}>
           <div className="text-xs font-semibold text-slate-500 px-1">
             典型错题样本列表（点击查看 AI 四维诊断）
           </div>
@@ -220,16 +222,16 @@ export const DiagnosticsAndAnalyticsPage: React.FC<DiagnosticsAndAnalyticsPagePr
           )}
         </div>
 
-        <div className="xl:col-span-8 space-y-5">
-          <div className="glass-panel rounded-2xl p-5 space-y-4">
+        <div className={`${isMobileStudent ? '' : 'xl:col-span-8'} space-y-4`}>
+          <div className="glass-panel rounded-2xl p-4 sm:p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-base font-bold text-slate-900">{selected.question}</h2>
+              <h2 className="text-sm sm:text-base font-bold text-slate-900">{selected.question}</h2>
               <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                四维错因诊断：{selected.errorDimension}
+                {selected.errorDimension}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className={`grid grid-cols-1 ${isMobileStudent ? '' : 'md:grid-cols-2'} gap-3`}>
               <div className="rounded-xl bg-rose-50/70 border border-rose-200 p-3.5 space-y-2">
                 <div className="text-xs font-bold text-rose-700">❌ 匿名典型错解（已脱敏）</div>
                 <pre className="text-xs font-mono text-rose-950 bg-white/80 rounded-lg p-3 border border-rose-100 overflow-x-auto whitespace-pre-wrap leading-relaxed">
