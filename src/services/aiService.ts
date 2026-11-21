@@ -1,10 +1,15 @@
 import type { AIConfig, SlideItem } from '../types';
 
 const CONFIG_KEY = 'edumind_ai_config_v1';
+let configAccount: string | null = null;
+
+export function setAIConfigAccount(accountId: string | null) {
+  configAccount = accountId;
+}
 
 export function loadAIConfig(): AIConfig {
   try {
-    const raw = localStorage.getItem(CONFIG_KEY);
+    const raw = configAccount && localStorage.getItem(CONFIG_KEY + ':' + configAccount);
     if (raw) return JSON.parse(raw);
   } catch {
     // ignore
@@ -19,7 +24,7 @@ export function loadAIConfig(): AIConfig {
 
 export function saveAIConfig(config: AIConfig) {
   try {
-    localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+    if (configAccount) localStorage.setItem(CONFIG_KEY + ':' + configAccount, JSON.stringify(config));
   } catch {
     // ignore
   }

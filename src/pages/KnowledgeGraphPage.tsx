@@ -11,7 +11,14 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { STATUS_META } from '../data/mockData';
-import type { KnowledgeNode, NavPage, UserRole } from '../types';
+import type { KnowledgeNode, MasteryStatus, NavPage, UserRole } from '../types';
+
+const GRAPH_STATUS_COLORS: Record<MasteryStatus, string> = {
+  mastered: '#10bca1',
+  'needs-review': '#f4a125',
+  weak: '#f25b7d',
+  unlearned: '#7c9ed0',
+};
 
 interface KnowledgeGraphPageProps {
   role: UserRole;
@@ -63,7 +70,7 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
     const height = container.clientHeight || 520;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x091a32, 0.032);
+    scene.fog = new THREE.FogExp2(0xedf3fa, 0.018);
 
     const camera = new THREE.PerspectiveCamera(48, width / height, 0.1, 100);
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -72,13 +79,13 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xbae6fd, 1.4));
-    const dirLight = new THREE.DirectionalLight(0x38bdf8, 2.0);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+    const dirLight = new THREE.DirectionalLight(0xfffbf7, 1.65);
     dirLight.position.set(8, 10, 8);
     scene.add(dirLight);
-    const cyanLight = new THREE.PointLight(0x0ea5e9, 2.2, 30);
-    cyanLight.position.set(-8, -5, 6);
-    scene.add(cyanLight);
+    const fillLight = new THREE.PointLight(0xc6dbff, 1.1, 30);
+    fillLight.position.set(-8, -5, 6);
+    scene.add(fillLight);
 
     const starGeo = new THREE.BufferGeometry();
     const starCount = 300;
@@ -87,7 +94,7 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
       starPos[i] = (Math.random() - 0.5) * 42;
     }
     starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-    const starMat = new THREE.PointsMaterial({ color: 0x7dd3fc, size: 0.08, transparent: true, opacity: 0.65 });
+    const starMat = new THREE.PointsMaterial({ color: 0x8fa5bb, size: 0.06, transparent: true, opacity: 0.17 });
     const stars = new THREE.Points(starGeo, starMat);
     scene.add(stars);
 
@@ -96,7 +103,7 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
 
     nodes.forEach((node) => {
       const status = viewScope === 'class' ? node.classStatus : node.status;
-      const colorHex = STATUS_META[status].hex;
+      const colorHex = GRAPH_STATUS_COLORS[status];
       const pos = new THREE.Vector3(...node.position);
       nodePosMap.set(node.id, pos);
 
@@ -105,9 +112,9 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
       const mat = new THREE.MeshStandardMaterial({
         color: new THREE.Color(colorHex),
         emissive: new THREE.Color(colorHex),
-        emissiveIntensity: status === 'weak' ? 0.65 : 0.35,
-        roughness: 0.25,
-        metalness: 0.3,
+        emissiveIntensity: 0.42,
+        roughness: 0.32,
+        metalness: 0.07,
       });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.copy(pos);
@@ -119,7 +126,7 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
         color: new THREE.Color(colorHex),
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: status === 'weak' ? 0.65 : 0.3,
+        opacity: status === 'weak' ? 0.5 : 0.27,
       });
       const ring = new THREE.Mesh(ringGeo, ringMat);
       ring.position.copy(pos);
@@ -136,11 +143,11 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
         const fromPos = nodePosMap.get(preId);
         if (!fromPos) return;
         const lineGeo = new THREE.BufferGeometry().setFromPoints([fromPos, toPos]);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.4 });
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x667d9a, transparent: true, opacity: 0.59 });
         scene.add(new THREE.Line(lineGeo, lineMat));
 
         const pGeo = new THREE.SphereGeometry(0.08, 12, 12);
-        const pMat = new THREE.MeshBasicMaterial({ color: 0x7dd3fc });
+        const pMat = new THREE.MeshBasicMaterial({ color: 0x5c89c7 });
         const pMesh = new THREE.Mesh(pGeo, pMat);
         scene.add(pMesh);
         flowParticles.push({ mesh: pMesh, from: fromPos, to: toPos, t: Math.random() });
@@ -338,7 +345,7 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
               key={k}
               className={`px-2 py-0.5 rounded-full border ${m.bg} ${m.border} ${m.color} font-semibold flex items-center gap-1`}
             >
-              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: m.hex }} />
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: GRAPH_STATUS_COLORS[k] }} />
               {m.label}
             </span>
           );
@@ -348,7 +355,7 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
       <div className={`grid grid-cols-1 ${isMobileStudent ? '' : 'xl:grid-cols-12'} gap-4`}>
         {/* 3D / 2D Canvas */}
         <div
-          className={`${isMobileStudent ? 'min-h-[340px]' : 'xl:col-span-8 min-h-[520px]'} relative rounded-2xl border border-sky-300/80 bg-gradient-to-br from-[#08172e] via-[#0c2342] to-[#0a1d38] overflow-hidden shadow-md`}
+          className={`${isMobileStudent ? 'min-h-[340px]' : 'xl:col-span-8 min-h-[520px]'} knowledge-graph-surface relative rounded-2xl border border-slate-200 overflow-hidden shadow-sm`}
         >
           {!fallback2D ? (
             <>
@@ -361,7 +368,7 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
                   const st = viewScope === 'class' ? node.classStatus : node.status;
                   const sc = viewScope === 'class' ? node.classMastery : node.studentMastery;
                   const isSelected = node.id === selectedNodeId;
-                  const dotHex = STATUS_META[st].hex;
+                  const dotHex = GRAPH_STATUS_COLORS[st];
                   return (
                     <button
                       key={node.id}
@@ -371,19 +378,19 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
                       }}
                       className={`pointer-events-auto absolute top-0 left-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold backdrop-blur-md border transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                         isSelected
-                          ? 'bg-sky-500 text-white border-white shadow-lg shadow-sky-400/40 z-20'
-                          : 'bg-slate-950/75 text-sky-50 border-sky-400/35 hover:border-sky-300 z-10'
+                          ? 'bg-slate-800 text-white border-slate-700 shadow-md shadow-slate-400/35 z-20'
+                          : 'bg-white/95 text-slate-800 border-slate-300/80 hover:border-blue-500 shadow-sm shadow-slate-400/15 z-10'
                       }`}
                     >
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: dotHex }} />
                       <span>{node.label}</span>
-                      <span className="text-sky-200">{sc > 0 ? `${sc}%` : '未学'}</span>
+                      <span className={isSelected ? 'text-blue-100' : 'text-slate-600'}>{sc > 0 ? `${sc}%` : '未学'}</span>
                     </button>
                   );
                 })}
               </div>
-              <div className="pointer-events-none absolute bottom-3 left-3 px-3 py-1.5 rounded-lg bg-slate-950/70 border border-sky-400/30 text-[11px] text-sky-100">
-                🖱️ 左键拖拽旋转 3D 星图 · 滚轮缩放 · 浅蓝光粒表示先修知识依赖方向
+              <div className="pointer-events-none absolute bottom-3 left-3 px-3 py-1.5 rounded-lg bg-white/85 border border-slate-200 text-[11px] text-slate-600">
+                🖱️ 左键拖拽旋转 3D 星图 · 滚轮缩放 · 蓝色圆点表示先修知识依赖方向
               </div>
             </>
           ) : (
@@ -412,7 +419,7 @@ export const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({
                       </div>
                       <div className="text-sm font-bold text-slate-800">{node.label}</div>
                       <div className="mt-2 h-1.5 rounded-full bg-sky-100 overflow-hidden">
-                        <div className="h-full" style={{ width: `${sc}%`, backgroundColor: meta.hex }} />
+                        <div className="h-full" style={{ width: `${sc}%`, backgroundColor: GRAPH_STATUS_COLORS[st] }} />
                       </div>
                     </button>
                   );

@@ -56,3 +56,71 @@
 .animate-scanline {
   animation: scanline 2.2s linear infinite;
 }
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.workspace-shell {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.workspace-menu {
+  width: min(21rem, calc(100% - 2.5rem));
+  height: 100%;
+  height: 100dvh;
+}
+
+.workspace-menu .workspace-brand { padding-right: 3.25rem; }
+
+.workspace-settings {
+  width: min(28rem, calc(100% - 1.5rem));
+  max-height: calc(100dvh - 1.5rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.workspace-scroll {
+  scrollbar-gutter: stable;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.workspace-content {
+  overflow-wrap: anywhere;
+}
+
+@media (max-height: 790px) {
+  .workspace-brand { padding-block: 0.625rem; }
+  .workspace-course { padding-top: 0.625rem; }
+  .workspace-link { padding-block: 0.375rem; }
+  .workspace-identity { padding-block: 0.5rem; }
+}
+
+@media (max-height: 630px) {
+  .workspace-course { display: none; }
+}
+
+@media (max-height: 430px) {
+  .workspace-identity { display: none; }
+}
+
+.knowledge-graph-surface {
+  background:
+    radial-gradient(ellipse at 32% 18%, #fff 0%, transparent 60%),
+    radial-gradient(ellipse at 92% 94%, #dfe9f7 0%, transparent 66%),
+    #edf3fa;
+}
+
+.student-workspace-tabs {
+  padding-bottom: max(0.625rem, env(safe-area-inset-bottom));
+}
+
+@media (max-height: 560px) {
+  .login-wrap { align-items: start; }
+}

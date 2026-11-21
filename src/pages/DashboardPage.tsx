@@ -39,6 +39,7 @@ import type {
 
 interface DashboardPageProps {
   role: UserRole;
+  displayName: string;
   nodes: KnowledgeNode[];
   checkIns: CheckInRecord[];
   mistakes: MistakeItem[];
@@ -49,6 +50,7 @@ interface DashboardPageProps {
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({
   role,
+  displayName,
   nodes,
   checkIns,
   mistakes,
@@ -188,7 +190,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 教师端 · AI 教学驾驶舱
               </div>
               <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">
-                早安，张教授！本班《递归与调用栈》已生成精准讲评方案
+                {displayName}，本班《递归与调用栈》已生成精准讲评方案
               </h1>
               <p className="text-sm text-sky-50 mt-1.5 max-w-2xl">
                 AI 已自动完成 40 份课后作业四维错因诊断，识别出 <strong>3 个全班共性薄弱节点</strong>，并为你准备好可直接投屏的脱敏错例对比与分层巩固单。
@@ -469,7 +471,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <span className="text-xs text-sky-100 tabular-nums">掌握度 {avgMastery}%</span>
         </div>
         <div>
-          <h1 className="text-lg font-bold leading-snug">林致远，继续攻克「递归与调用栈」</h1>
+          <h1 className="text-lg font-bold leading-snug">{displayName}，继续攻克「递归与调用栈」</h1>
           <p className="text-xs text-sky-100 mt-1">
             当前掌握度 {nodes.find((n) => n.id === 'recursion')?.studentMastery}% · 还有 {unresolvedMistakes.length} 道错题待巩固
           </p>

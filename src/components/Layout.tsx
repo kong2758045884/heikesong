@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
-  Activity,
   BookOpen,
   BrainCircuit,
   Camera,
@@ -9,22 +8,25 @@ import {
   GraduationCap,
   Home,
   LayoutDashboard,
+  LogOut,
+  Menu,
   Network,
   Settings,
   ShieldCheck,
-  Smartphone,
   Sparkles,
-  UserCheck,
   Users,
   X,
   ZapOff,
 } from 'lucide-react';
 import type { AIConfig, NavPage, UserRole } from '../types';
 import { loadAIConfig, saveAIConfig } from '../services/aiService';
+import { ROLE_NAMES, type Account } from '../services/authService';
 
 interface LayoutProps {
-  role: UserRole;
-  onRoleChange: (role: UserRole) => void;
+  account: Account;
+  allowedPages: NavPage[];
+  onLogout: () => void;
+  logoutBusy: boolean;
   currentPage: NavPage;
   onNavigate: (page: NavPage) => void;
   reduceMotion: boolean;
@@ -62,15 +64,11 @@ const STUDENT_BOTTOM_TABS: {
   { id: 'diagnostics', label: '错题', icon: BrainCircuit },
 ];
 
-const ROLE_LABELS: Record<UserRole, string> = {
-  teacher: '教师端',
-  student: '学生端',
-  admin: '管理端',
-};
-
 export const Layout: React.FC<LayoutProps> = ({
-  role,
-  onRoleChange,
+  account,
+  allowedPages,
+  onLogout,
+  logoutBusy,
   currentPage,
   onNavigate,
   reduceMotion,
@@ -79,6 +77,29 @@ export const Layout: React.FC<LayoutProps> = ({
   unresolvedMistakesCount,
   children,
 }) => {
+  const role = account.role;
+  const contentArea = useRef<HTMLElement>(null);
+  const menu = useRef<HTMLDialogElement>(null);
+  useLayoutEffect(() => {
+    if (contentArea.current) contentArea.current.scrollTop = 0;
+  }, [currentPage]);
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 1024px)');
+    const closeDrawerOnDesktop = () => {
+      if (desktop.matches) menu.current?.close();
+    };
+    desktop.addEventListener('change', closeDrawerOnDesktop);
+    return () => desktop.removeEventListener('change', closeDrawerOnDesktop);
+  }, []);
+
+  const logoutButton = (
+    <button type="button" aria-label="退出登录" title="退出登录" disabled={logoutBusy}
+      onClick={() => { menu.current?.close(); onLogout(); }}
+      className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-sky-200 bg-white text-slate-600 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-60">
+      <LogOut className="size-4" />
+    </button>
+  );
+
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aiConfig, setAiConfig] = useState<AIConfig>(() => loadAIConfig());
   const [savedToast, setSavedToast] = useState(false);
@@ -94,11 +115,11 @@ export const Layout: React.FC<LayoutProps> = ({
 
   const settingsModal = settingsOpen ? (
     <div className="fixed inset-0 z-[100] bg-slate-900/35 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white border border-sky-200 shadow-xl p-5 space-y-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="settings-title" className="workspace-settings w-full max-w-md rounded-2xl bg-white border border-sky-200 shadow-xl p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-sky-600" />
-            <h3 className="font-semibold text-base text-slate-900">AI 服务引擎配置</h3>
+            <h3 id="settings-title" className="font-semibold text-base text-slate-900">AI 服务引擎配置</h3>
           </div>
           <button
             onClick={() => setSettingsOpen(false)}
@@ -186,55 +207,28 @@ export const Layout: React.FC<LayoutProps> = ({
 
     return (
       <div
-        className={`min-h-screen bg-[#e8f2fc] flex flex-col items-center justify-start sm:py-4 sm:px-4 ${
+        className={`workspace-shell bg-[#e8f2fc] flex flex-col items-center justify-center min-h-0 sm:py-3 sm:px-4 ${
           reduceMotion ? 'reduce-motion' : ''
         }`}
       >
-        {/* Subtle desktop role-switcher strip above the mobile phone frame */}
-        <div className="hidden sm:flex items-center justify-between w-full max-w-[430px] mb-3 px-1">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
-            <Smartphone className="w-3.5 h-3.5 text-sky-600" />
-            <span>学生移动端视图</span>
-          </div>
-          <div className="inline-flex rounded-lg bg-white border border-sky-200 p-0.5 shadow-xs">
-            {(['teacher', 'student', 'admin'] as UserRole[]).map((r) => (
-              <button
-                key={r}
-                onClick={() => onRoleChange(r)}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
-                  role === r ? 'bg-sky-600 text-white' : 'text-slate-600 hover:text-sky-700'
-                }`}
-              >
-                {ROLE_LABELS[r]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Mobile App Shell */}
-        <div className="w-full sm:max-w-[430px] min-h-screen sm:min-h-0 sm:h-[calc(100vh-76px)] sm:max-h-[800px] bg-[#f4f9ff] sm:rounded-[28px] sm:border sm:border-sky-200 sm:shadow-[0_20px_50px_-15px_rgba(14,165,233,0.18)] flex flex-col overflow-hidden relative">
+        <div className="w-full flex-1 min-h-0 sm:max-w-[430px] sm:max-h-[800px] bg-[#f4f9ff] sm:rounded-[28px] sm:border sm:border-sky-200 sm:shadow-[0_20px_50px_-15px_rgba(14,165,233,0.18)] flex flex-col overflow-hidden relative">
           {/* Clean Mobile Top App Bar */}
           <header className="sticky top-0 z-20 h-14 px-4 bg-white/95 backdrop-blur-md border-b border-sky-100 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-sky-600 flex items-center justify-center text-white">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="w-8 h-8 shrink-0 rounded-xl bg-sky-600 flex items-center justify-center text-white">
                 <GraduationCap className="w-4 h-4" />
               </div>
-              <div className="leading-tight">
+              <div className="leading-tight min-w-0">
                 <div className="text-sm font-bold text-slate-900 tracking-tight">EduMind</div>
-                <div className="text-[11px] text-slate-500">Python 数据结构 · 林致远</div>
+                <div className="truncate text-[11px] text-slate-500">学生端 · {account.displayName}</div>
               </div>
             </div>
 
             <div className="flex items-center gap-1.5">
-              {/* Mobile-only quick switch back to Teacher */}
-              <button
-                onClick={() => onRoleChange('teacher')}
-                className="sm:hidden px-2.5 py-1 rounded-lg bg-sky-50 text-sky-700 border border-sky-200 text-[11px] font-semibold cursor-pointer"
-              >
-                切教师端
-              </button>
+              {logoutButton}
               <button
                 onClick={() => setSettingsOpen(true)}
+              aria-label="AI 引擎配置"
                 className="p-2 rounded-lg text-slate-500 hover:text-sky-700 hover:bg-sky-50 cursor-pointer"
                 title="AI 引擎设置"
               >
@@ -244,18 +238,19 @@ export const Layout: React.FC<LayoutProps> = ({
           </header>
 
           {/* Scrollable Mobile Content */}
-          <main className="flex-1 overflow-y-auto px-4 pt-4 pb-24">{children}</main>
+          <main ref={contentArea} className="workspace-scroll workspace-content flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain px-4 py-4">{children}</main>
 
           {/* Clean 5-Button Fixed Bottom Tab Bar */}
-          <nav className="sticky sm:absolute bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-sky-100 px-2 pt-1.5 pb-2.5 sm:pb-3">
+          <nav aria-label="学生导航" className="student-workspace-tabs z-30 shrink-0 bg-white/95 backdrop-blur-md border-t border-sky-100 px-2 pt-1.5">
             <div className="grid grid-cols-5 gap-1">
-              {STUDENT_BOTTOM_TABS.map((tab) => {
+              {STUDENT_BOTTOM_TABS.filter((tab) => allowedPages.includes(tab.id)).map((tab) => {
                 const Icon = tab.icon;
                 const active = activeTabId === tab.id;
                 const hasBadge = tab.id === 'diagnostics' && unresolvedMistakesCount > 0;
                 return (
                   <button
                     key={tab.id}
+                    aria-current={active ? 'page' : undefined}
                     onClick={() => onNavigate(tab.id)}
                     className={`relative flex flex-col items-center justify-center py-1.5 rounded-xl transition-colors cursor-pointer ${
                       active ? 'text-sky-600 bg-sky-50' : 'text-slate-500 hover:text-slate-800'
@@ -287,18 +282,12 @@ export const Layout: React.FC<LayoutProps> = ({
   // =========================================================================
   // TEACHER & ADMIN MODE: CLEAN UNSLOPPED DESKTOP WORKSPACE
   // =========================================================================
-  const visibleNav = DESKTOP_NAV.filter((item) => item.roles.includes(role));
+  const visibleNav = DESKTOP_NAV.filter((item) => item.roles.includes(role) && allowedPages.includes(item.id));
 
-  return (
-    <div
-      className={`min-h-screen bg-[#f2f7fd] text-slate-800 flex flex-col lg:flex-row ${
-        reduceMotion ? 'reduce-motion' : ''
-      }`}
-    >
-      {/* Left Sidebar */}
-      <aside className="w-full lg:w-60 lg:min-h-screen border-b lg:border-b-0 lg:border-r border-sky-200/80 bg-white flex flex-col shrink-0">
+  const sidebar = (
+    <>
         {/* Brand */}
-        <div className="px-5 h-16 border-b border-sky-100 flex items-center gap-2.5">
+        <div className="workspace-brand px-5 min-h-16 shrink-0 border-b border-sky-100 flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-sky-600 flex items-center justify-center text-white">
             <GraduationCap className="w-4 h-4" />
           </div>
@@ -309,7 +298,7 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
 
         {/* Course Selector Card */}
-        <div className="px-4 pt-4 pb-2 hidden lg:block">
+        <div className="workspace-course shrink-0 px-4 pt-4 pb-2">
           <div className="rounded-xl bg-sky-50/80 border border-sky-100 p-3">
             <div className="text-[11px] text-sky-700 font-medium">当前课程</div>
             <div className="text-xs font-semibold text-slate-900 mt-0.5">Python 程序设计与数据结构</div>
@@ -318,7 +307,7 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-2 flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
+        <nav aria-label="功能导航" className="flex-1 min-h-0 px-3 py-2 flex flex-col gap-1 overflow-y-auto overscroll-y-contain">
           {visibleNav.map((item) => {
             const Icon = item.icon;
             const active = currentPage === item.id;
@@ -329,8 +318,12 @@ export const Layout: React.FC<LayoutProps> = ({
             return (
               <button
                 key={item.id}
-                onClick={() => onNavigate(item.id)}
-                className={`flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors shrink-0 lg:shrink cursor-pointer ${
+                aria-current={active ? 'page' : undefined}
+                onClick={() => {
+                  menu.current?.close();
+                  onNavigate(item.id);
+                }}
+                className={`flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors workspace-link shrink-0 cursor-pointer ${
                   active
                     ? 'bg-sky-600 text-white'
                     : 'text-slate-600 hover:bg-sky-50 hover:text-sky-700'
@@ -355,49 +348,57 @@ export const Layout: React.FC<LayoutProps> = ({
         </nav>
 
         {/* User Footer */}
-        <div className="p-3 border-t border-sky-100 hidden lg:block">
+        <div className="workspace-identity shrink-0 p-3 border-t border-sky-100">
           <div className="flex items-center gap-2.5 px-2 py-1.5">
             <div className="w-8 h-8 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-xs font-bold">
-              {role === 'teacher' ? '张' : '管'}
+              {Array.from(account.displayName)[0]}
             </div>
             <div className="min-w-0">
               <div className="text-xs font-semibold text-slate-800 truncate">
-                {role === 'teacher' ? '张教授' : '系统管理员'}
+                {account.displayName}
               </div>
               <div className="text-[11px] text-slate-500 truncate">
-                {role === 'teacher' ? '计算机学院' : '运维与合规'}
+                {ROLE_NAMES[role]}
               </div>
             </div>
           </div>
         </div>
-      </aside>
+    </>
+  );
 
-      {/* Main Column */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-20 h-16 px-4 lg:px-7 border-b border-sky-200/70 bg-white/90 backdrop-blur-md flex items-center justify-between gap-3">
-          <div className="inline-flex rounded-xl bg-sky-50 border border-sky-200/80 p-1">
-            {(['teacher', 'student', 'admin'] as UserRole[]).map((r) => (
-              <button
-                key={r}
-                onClick={() => onRoleChange(r)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  role === r
-                    ? 'bg-sky-600 text-white'
-                    : 'text-slate-600 hover:text-sky-700'
-                }`}
-              >
-                {r === 'teacher' && <UserCheck className="w-3.5 h-3.5" />}
-                {r === 'student' && <Smartphone className="w-3.5 h-3.5" />}
-                {r === 'admin' && <Activity className="w-3.5 h-3.5" />}
-                {ROLE_LABELS[r]}
-              </button>
-            ))}
+  return (
+    <div className={`workspace-shell bg-[#f2f7fd] text-slate-800 flex overflow-hidden ${reduceMotion ? 'reduce-motion' : ''}`}>
+      <aside className="hidden lg:flex lg:w-60 h-full border-r border-sky-200/80 bg-white flex-col shrink-0">
+        {sidebar}
+      </aside>
+      <dialog ref={menu} id="workspace-nav-menu" aria-label="工作区导航"
+        className="workspace-menu fixed inset-y-0 left-0 right-auto m-0 max-w-none max-h-none overflow-hidden border-0 bg-white backdrop:bg-slate-900/45"
+        onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close(); }}>
+        <div className="relative flex h-full flex-col">
+          <button type="button" aria-label="关闭导航" onClick={() => menu.current?.close()}
+            className="absolute right-2 top-2 grid size-11 place-items-center rounded-lg text-slate-500 hover:bg-sky-50"><X className="size-5" /></button>
+          {sidebar}
+        </div>
+      </dialog>
+
+      <div className="flex-1 flex flex-col min-h-0 min-w-0">
+        <header className="z-20 min-h-16 shrink-0 px-3 lg:px-7 border-b border-sky-200/70 bg-white/90 backdrop-blur-md flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <button type="button" aria-label="打开导航" aria-haspopup="dialog" aria-controls="workspace-nav-menu"
+              onClick={() => menu.current?.showModal()}
+              className="grid size-11 shrink-0 place-items-center rounded-xl border border-sky-200 bg-white text-sky-700 lg:hidden"><Menu className="size-5" /></button>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-900">{account.displayName}</p>
+              <p className="text-xs text-slate-600">{ROLE_NAMES[role]}</p>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={onToggleReduceMotion}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border cursor-pointer flex items-center gap-1.5 ${
+              aria-label="节能模式"
+              aria-pressed={reduceMotion}
+              className={`min-h-10 min-w-10 justify-center px-2.5 rounded-lg text-xs font-medium border cursor-pointer flex items-center gap-1.5 ${
                 reduceMotion
                   ? 'bg-amber-50 text-amber-700 border-amber-300'
                   : 'bg-white text-slate-600 border-slate-200 hover:border-sky-300'
@@ -408,15 +409,18 @@ export const Layout: React.FC<LayoutProps> = ({
             </button>
             <button
               onClick={() => setSettingsOpen(true)}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white text-slate-700 border border-slate-200 hover:border-sky-300 cursor-pointer flex items-center gap-1.5"
+              aria-label="AI 引擎配置"
+              className="min-h-10 min-w-10 justify-center px-2.5 rounded-lg text-xs font-medium bg-white text-slate-700 border border-slate-200 hover:border-sky-300 cursor-pointer flex items-center gap-1.5"
             >
               <Settings className="w-3.5 h-3.5 text-sky-600" />
               <span className="hidden md:inline">AI 配置</span>
             </button>
+            {logoutButton}
           </div>
         </header>
 
-        <main className="flex-1 p-4 lg:p-7 max-w-[1440px] w-full mx-auto">{children}</main>
+        <section ref={contentArea} className="workspace-scroll flex flex-1 min-h-0 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain">
+          <main className="workspace-content flex-1 p-4 lg:p-7 max-w-[1440px] w-full mx-auto">{children}</main>
 
         <footer className="px-4 lg:px-7 py-3 border-t border-sky-100 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-2">
           <span>EduMind AI 智慧教学平台 · 曲阜师范大学演示版</span>
@@ -424,7 +428,8 @@ export const Layout: React.FC<LayoutProps> = ({
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
             脱敏模拟教学数据 · AI 内容均支持教师审核
           </span>
-        </footer>
+          </footer>
+        </section>
       </div>
 
       {settingsModal}
